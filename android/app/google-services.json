@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "302704940049",
+    "project_id": "reapp-d4d07",
+    "storage_bucket": "reapp-d4d07.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302704940049:android:161ed357f50465d356cdb0",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBB54gO88D9aAXPtmO5capfnm_93bvkWmo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
