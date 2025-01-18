@@ -8,9 +8,13 @@
 // ignore_for_file: public_member_api_docs
 
 
+import 'package:intl/intl.dart';
 import 'package:my_app/model/property.dart';
+import 'package:my_app/pages/PageStatics.dart';
+import 'package:my_app/pages/addexpense.dart';
 import 'package:my_app/pages/allproperty.dart';
-import 'package:my_app/pages/expense.dart';
+import 'package:my_app/pages/expensespage.dart';
+import 'package:my_app/pages/issue.dart';
 import 'package:my_app/pages/login.dart';
 import 'package:my_app/pages/newissue.dart';
 import 'package:my_app/pages/newproperty.dart';
@@ -35,7 +39,7 @@ class MyApp extends StatelessWidget {
   MyApp({super.key});
   String currentMonth = "";
   @override
-    void initState() {
+  void initState() {
 
 
   }
@@ -45,19 +49,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     print('in main build');
     return ChangeNotifierProvider<PropertyModel>(
-      create : (context) {var p= PropertyModel();
+        create : (context) {var p= PropertyModel();
         p.loadPriorityProperties();p.loadOtherProperties();
         return p;},
-      child : MaterialApp.router(
-        title: 'Flutter Demo',
-       routerConfig: router(),
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-       ),
-      //home: const MyHomePage(title: 'Flutter Demo Home Page'),
-     ));
-   }
+        child : MaterialApp.router(
+          debugShowCheckedModeBanner: false,
+          title: 'Flutter Demo',
+          routerConfig: router(),
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            useMaterial3: true,
+          ),
+          //home: const MyHomePage(title: 'Flutter Demo Home Page'),
+        ));
+  }
 }
 
 class MyHomePage extends StatefulWidget {
@@ -86,6 +91,7 @@ GoRouter router() {
 }
 class _MyApp extends State<MyHomePage> {
   int _selectedIndex =0;
+  late void Function(String) myMethod;
 
   List<Widget> getActions(int body) {
     switch (body) {
@@ -96,46 +102,97 @@ class _MyApp extends State<MyHomePage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) =>   NewProperty(rentable: RentableModel.nullCardViewModel(), insertMode: true,)),
+                  //MaterialPageRoute(builder: (context) =>   NewProperty(rentable: RentableModel.nullCardViewModel(), insertMode: true,)),
+                  MaterialPageRoute(builder: (context) =>   AddExpenseScreen()),
                 );
               }
           ),
 
-         // Home Screen
-          ];
+          // Home Screen
+        ];
       case 2:
         return [
           IconButton(
               icon: const Icon(Icons.add_rounded),
               onPressed: () {
                 Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) =>
-                    NewIssue(newIssue: Issue.nullIssue(),insertMode:true
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            NewIssue(newIssue: Issue.nullIssue(),insertMode:true
 
-                            //insertMode: true,
-                      //UploadingImageToFirebaseStorage()
+                              //insertMode: true,
+                              //UploadingImageToFirebaseStorage()
 
-                )));
+                            )));
               }),
         ];
       default:
         return [];
-        // Settings Screen
+    // Settings Screen
     }
   }
   PreferredSizeWidget _buildAppBarTitle(int index, PropertyModel props) {
 
-
     switch (index) {
       case 0:
         return AppBar(
-          title: const Text("Income"),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Income"),
+              const SizedBox(width: 30),
+              Expanded(
+                child: TextField(
+                  onChanged: (str) { myMethod.call(str);},
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFFFFFFF),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15.0),
+                    /* -- Text and Icon -- */
+                    hintText: "Search Units...",
+                    hintStyle: const TextStyle(
+                      fontSize: 18,
+                      color: Color(0xFFB3B1B1),
+                    ), // TextStyle
+                    suffixIcon: const Icon(
+                      Icons.search,
+                      size: 26,
+                      color: Colors.black54,
+                    ), // Icon
+                    /* -- Border Styling -- */
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(45.0),
+                      borderSide: const BorderSide(
+                        width: 2.0,
+                        color: Color(0xFFFF0000),
+                      ), // BorderSide
+                    ), // OutlineInputBorder
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(45.0),
+                      borderSide: const BorderSide(
+                        width: 2.0,
+                        color: Colors.grey,
+                      ), // BorderSide
+                    ), // OutlineInputBorder
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(45.0),
+                      borderSide: const BorderSide(
+                        width: 2.0,
+                        color: Colors.grey,
+                      ), // BorderSide
+                    ), // OutlineInputBorder
+                  ), // InputDecoration
+                ), // TextField
+              ), // Expanded
+            ],
+          ),
           toolbarHeight: 55.0,
 
           elevation: 8,
-          );
+
+        );
 
 
       case 1:
@@ -161,12 +218,12 @@ class _MyApp extends State<MyHomePage> {
     }
     return AppBar();
   }
-  static const List<Widget> _pages = <Widget>[
-
-    RentPaymentPage(),
+  static List<Widget> _pages = <Widget>[
+    Container(),
     ListViewHome(),
-    //ExpensesPage(),
-    RepairPage(),
+    //RepairPage(),
+    IssuePage(),
+    //RepairPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -175,7 +232,46 @@ class _MyApp extends State<MyHomePage> {
       print("index $index");
     });
   }
+  Drawer getDrawer(int index, PropertyModel props) {
 
+    switch (index) {
+      case 0:
+        return Drawer(
+          child: SafeArea(
+            right: false,
+            child:
+            Padding(
+              padding: const EdgeInsets.all(1.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: <Widget>[
+
+                  IconButton(onPressed: () {showPrevMonth(props);}, icon: Icon(Icons.skip_previous),),
+                  Text(DateFormat("MMMM").format(DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth)),
+                      style:  TextStyle(fontSize: 16,fontStyle: FontStyle.italic,fontWeight: FontWeight.bold)),
+                  IconButton(onPressed: () {showNextMonth(props);}, icon: Icon(Icons.skip_next),),
+                  SizedBox(width: 5,),
+
+                  OutlinedButton(child: Text("Roll Month",style:  TextStyle(fontSize: 14,)),
+
+
+                    onPressed: (){props.rollDate();  props.setTxMap();
+                    setState(() {
+                      props.currentMonth;
+                    });},
+                  ),
+                ],
+              ),
+
+
+            ),
+
+          ),
+        );
+      default:
+        return Drawer();
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Consumer<PropertyModel>(
@@ -187,196 +283,124 @@ class _MyApp extends State<MyHomePage> {
             //   // actions: getActions(_selectedIndex),
             //   // elevation: 8,
             // ),
-            appBar: _buildAppBarTitle(_selectedIndex,props),
-            body: Center(
-              child: _pages.elementAt(_selectedIndex),
-            ),
-            bottomNavigationBar: BottomNavigationBar(
+              appBar: _buildAppBarTitle(_selectedIndex,props),
+              body: Center(
+                child: (_selectedIndex == 0) ? RentPaymentPage(builder: (BuildContext context, void Function(String) methodFromChild) {
+                  myMethod = methodFromChild;
+                },): _pages.elementAt(_selectedIndex),
+                //_pages.elementAt(_selectedIndex),
 
-              items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.currency_exchange_rounded),
-                  label: 'Income',
+              ),
+              bottomNavigationBar: BottomNavigationBar(
 
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home_work_rounded),
-                  label: 'Properties',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.account_balance_rounded),
-                  label: 'Expenses',
-                ),
+                items: const <BottomNavigationBarItem>[
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.currency_exchange_rounded),
+                    label: 'Income',
 
-              ],
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home_work_rounded),
+                    label: 'Properties',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.account_balance_rounded),
+                    label: 'Expenses',
+                  ),
 
-            ),
+                ],
+                currentIndex: _selectedIndex,
+                onTap: _onItemTapped,
+
+              ),
+              drawer: getDrawer(_selectedIndex, props)
+
           );
         }
     );
   }
+  void showNextMonth(PropertyModel props) {
+
+    DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth);
+    dt = DateTime(dt.year, dt.month +1, dt.day);
+    props.currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(dt);
+    props.setTxMap();
+    setState(() {
+      props.currentMonth;
+    });
+  }
+  void showPrevMonth(PropertyModel props) {
+    DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth);
+    dt = DateTime(dt.year, dt.month -1, dt.day);
+    props.currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(dt);
+    props.setTxMap();
+    setState(() {
+      props.currentMonth;
+    });
+  }
 }
+
+
 /*
+import 'dart:io';
 
-
+import 'package:dio/dio.dart';
+import 'package:example/config.dart';
 import 'package:flutter/material.dart';
+import 'package:google_drive_client/google_drive_client.dart';
+import 'package:path_provider/path_provider.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(App());
+}
 
-class MyApp extends StatelessWidget {
+class App extends StatelessWidget {
+  final GoogleDriveClient client = GoogleDriveClient(Dio(), getAccessToken: () async => Config.ACCESS_TOKEN);
+  final String id = '';
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      debugShowCheckedModeBanner: false,
-      /*theme: ThemeData(
-        r: Colors.blue,
-      ),*/
-      home: MyHomePage(),
-    );
-  }
-}
-
-
-
-
-class MyHomePage extends StatelessWidget {
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Card(
-
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius.all(Radius.circular(15.0))),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.home_repair_service_outlined),
-                    title: const Text('37-54 89th St, Apt 1'),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[Text(
-                      'Plumbing Issue' ,style: TextStyle(color: Colors.black.withOpacity(0.8)),),
-                      Text(
-                        'Contractor: Jose' ,style: TextStyle(color: Colors.black.withOpacity(0.8)),),
-                    ],
-
-                    ),
-                    trailing: Column(children:[Text("Jan 24th, 2004",style: TextStyle(color: Colors.black.withOpacity(0.8),fontSize: 14),
-                    ),Text("\$200",style: TextStyle(color: Colors.black.withOpacity(0.8), fontSize: 14),)]),
-                    //isThreeLine: true,
-
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Bathroom plumbing was leaking, required a new plumbing line',
-                      style: TextStyle(color: Colors.black.withOpacity(0.6)),
-                    ),
-                  ),
-                  ButtonBar(
-                    alignment: MainAxisAlignment.start,
-                    children: [
-                      TextButton(
-
-
-                        onPressed: () {
-                          // Perform some action
-                        },
-                        child: const Text('ACTION 1', style: TextStyle(color:  Color(0xFF6200EE),)),
-                      ),
-                      TextButton(
-                        //textColor: const Color(0xFF6200EE),
-                        onPressed: () {
-                          // Perform some action
-                        },
-                        child: const Text('ACTION 2', style: TextStyle(color:  Color(0xFF6200EE),)),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: ExpansionTile(
-
-                      backgroundColor: Colors.white,
-                      title: Row(children :[SizedBox(width: 90,), Text('Show Images', style: TextStyle(color:  Color(0xFF6200EE),))]),
-                      //subtitle: ,
-                      trailing: SizedBox(width: 1,),
-                      children: getImages(),
-
-
-                    ),
-                  )
-                ],
-              ),
+      home: Scaffold(
+        body: ListView(
+          children: [
+            FlatButton(
+              child: Text('list'),
+              onPressed: () async {
+                print(await client.list());
+              },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18.0),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius.all(Radius.circular(15.0))),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.arrow_drop_down_circle),
-                    title: const Text('Card title 2'),
-                    subtitle: Text(
-                      'Secondary Text',
-                      style: TextStyle(color: Colors.black.withOpacity(0.6)),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Greyhound divisively hello coldly wonderfully marginally far upon excluding.',
-                      style: TextStyle(color: Colors.black.withOpacity(0.6)),
-                    ),
-                  ),
-                  ButtonBar(
-                    alignment: MainAxisAlignment.start,
-                    children: [
-                      TextButton(
-                        //textColor: const Color(0xFF6200EE),
-                        onPressed: () {
-                          // Perform some action
-                        },
-                        child: const Text('ACTION 1', style: TextStyle(color:  Color(0xFF6200EE),)),
-                      ),
-                      TextButton(
-                       // textColor: const Color(0xFF6200EE),
-                        onPressed: () {
-                          // Perform some action
-                        },
-                        child: const Text('ACTION 2', style: TextStyle(color:  Color(0xFF6200EE),)),
-                      ),
-                    ],
-                  ),
-                  Image.asset('assets/home2.png'),
-                ],
-              ),
+            FlatButton(
+              child: Text('create'),
+              onPressed: () async {
+                final File file = File((await getTemporaryDirectory()).path + '/testing2');
+                file.writeAsStringSync("contents");
+                var meta = GoogleDriveFileUploadMetaData(name: 'testing');
+                print(await client.create(meta, file));
+              },
             ),
-          ),
-        ],
+            FlatButton(
+              child: Text('delete'),
+              onPressed: () async {
+                await client.delete(id);
+              },
+            ),
+            FlatButton(
+              child: Text('download'),
+              onPressed: () async {
+                await client.download(id, 'testing');
+              },
+            ),
+            FlatButton(
+              child: Text('get'),
+              onPressed: () async {
+                print(await client.get(id));
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  List<Widget> getImages() {
-    print('getting');
-    return [
-      Card(child:Image.asset('assets/home2.png')),
-      Card(child: Image.asset('assets/home2.png')),
-    ];
-  }
 }
-*/
+ */

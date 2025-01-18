@@ -2,7 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:easy_search_bar/easy_search_bar.dart';
+import 'package:standard_searchbar/new/standard_search_anchor.dart';
+import 'package:standard_searchbar/new/standard_search_bar.dart';
+import 'package:standard_searchbar/new/standard_suggestion.dart';
+import 'package:standard_searchbar/new/standard_suggestions.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../model/property.dart';
@@ -93,22 +97,8 @@ class _ContractorPageState extends State<ContractorPage> {
                     SizedBox(
                         height: 56,
                         width: 330,
-                        child: EasySearchBar(
-                            title: const Text('Search Contractor'),
-                            onSearch: (value) =>
-                                setState(() => searchValue = value),
-                            actions: [
-                              IconButton(
-                                  icon: const Icon(Icons.person),
-                                  onPressed: () {})
-                            ],
-                            isFloating: true,
-                            backgroundColor: Colors.white,
-                            showClearSearchIcon: true,
-                            openOverlayOnSearch: true,
-                            onSuggestionTap: (data) => setContractor(data),
-                            asyncSuggestions: (value) async =>
-                                await _handleSearch(value))),
+                        child: StandardSearchBar(
+                          )),
                     SizedBox(
                       height: 15,
                     ),

@@ -13,7 +13,9 @@ class DatabaseService {
   static const ISSUE_REF="Reapp/issues";
   static const CONTRACTORS_REF="Reapp/contractors";
   static const TX_MONTH_REF = "Reapp/currentMonth";//mm/yy
-  static const TX_SUMMARY_BY_MONTH = "Reapp/txSummary/";//mm/yy
+  static const TX_SUMMARY_BY_MONTH = "Reapp/txSummary/";
+
+  static const EXPENSE_REF = "Reapp/expenses";
 
   static Future<List<Property>> getProperties() async {
     final List<Property> retVal = [];
@@ -159,6 +161,22 @@ class DatabaseService {
     map.forEach((key, value) {
       final contractor = Contractor.fromMap(value);
       retVal.add(contractor);
+    });
+
+    return retVal;
+  }
+
+  static Future<List<Expense>> getExpenses() async {
+    final List<Expense> retVal = [];
+
+
+    final snapshot = await FirebaseDatabase.instance.ref(
+        DatabaseService.EXPENSE_REF).get();
+    if (snapshot.value == null) return [];
+    final map = snapshot!.value as Map<dynamic, dynamic>;
+    map.forEach((key, value) {
+      final expense = Expense.fromMap(value);
+      retVal.add(expense);
     });
 
     return retVal;

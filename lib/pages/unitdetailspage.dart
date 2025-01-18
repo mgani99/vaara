@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:easy_search_bar/easy_search_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_app/pages/PageStatics.dart';
@@ -19,7 +19,8 @@ class UnitDetailsPage extends StatefulWidget {
   LeaseDetails? leaseDetails;
   Unit? unit;
   bool insertMode;
-
+  bool? singleUnit;
+  String? mainAddress;
 
 
 
@@ -31,6 +32,8 @@ class UnitDetailsPage extends StatefulWidget {
 class _UnitDetailsPageState extends State<UnitDetailsPage> {
   final unitNameController = TextEditingController();
   final unitTypeController = TextEditingController();
+  final unitAddressController = TextEditingController();
+
   final bedroomsController = TextEditingController();
   final bathroomsController = TextEditingController();
   final livingSpaceController = TextEditingController();
@@ -61,7 +64,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> {
     leaseEndDateController.dispose();
     securityDepositController.dispose();
     rentAmountController.dispose();
-
+    unitAddressController.dispose();
 
 
     bedroomsController.dispose();
@@ -96,6 +99,8 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> {
     if (widget.unit != null) {
       unitNameController.text = widget.unit!.name;
       unitTypeController.text = widget.unit!.unitType;
+      unitAddressController.text = widget.unit!.address;
+
       bathroomsController.text = widget.unit!.bathrooms.toString();
       bedroomsController.text = widget.unit!.bedrooms.toString();
       livingSpaceController.text = widget.unit!.livingSpace.toString();
@@ -264,6 +269,27 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> {
             SizedBox(
               height: 15,
             ),
+                SizedBox(
+                  height: 45,
+                  width: 360,
+                  child: TextFormField(
+                    decoration: InputDecoration(
+                      contentPadding: EdgeInsets.all(10.0),
+
+                      hintText: 'Unit Address',
+                      //filled: true,
+                      //fillColor: const Color(0xfff1f1f1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.grey),
+                      ),
+                    ),
+                    controller: unitAddressController,
+                  ),
+                ),
+                SizedBox(
+                  height: 15,
+                ),
             SizedBox(
                 height: 55,
                 width: 360,
@@ -600,6 +626,14 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> {
     newUnit.livingSpace = int.parse(livingSpaceController.text != null ? livingSpaceController.text : "0");
     newUnit.bedrooms = int.parse(bedroomsController.text != null ? bedroomsController.text : "0");
     newUnit.bathrooms = double.parse(bathroomsController.text != null ? bathroomsController.text : "0.0");
+    newUnit.address = unitAddressController.text;
+    newUnit.tenantId = aTenant.id;
+    (widget!.unit != null) ?newUnit.unitTypeId = widget!.unit!.unitTypeId : newUnit.unitTypeId = 1;
+    newUnit.rent = ld.rent;
+
+
+
+
     if (widget!.unit != null) newUnit.id = widget!.unit!.id;
     Map<String, dynamic> returnData = {};
     returnData['Tenant'] = aTenant;

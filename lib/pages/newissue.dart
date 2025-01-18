@@ -2,13 +2,14 @@
 
 import 'dart:io';
 
-import 'package:easy_search_bar/easy_search_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_app/model/property.dart';
 import 'package:my_app/pages/contractor.dart';
 import 'package:provider/provider.dart';
+import 'package:standard_searchbar/old/standard_searchbar.dart';
 import '../services/TransactionService.dart';
 import 'PageStatics.dart';
 
@@ -408,22 +409,8 @@ class _NewIssueState extends State<NewIssue> {
                   children: [SizedBox(
                   height: 56,
                   width: 240,
-                  child: EasySearchBar(
-                      title: const Text('Search Contractor'),
-                      onSearch: (value) =>
-                          setState(() => searchValue = value),
-                      actions: [
-                        IconButton(
-                            icon: const Icon(Icons.person),
-                            onPressed: () {})
-                      ],
-                      isFloating: true,
-                      backgroundColor: Colors.white,
-                      showClearSearchIcon: true,
-                      openOverlayOnSearch: true,
-                      onSuggestionTap: (data) => setContractor(data),
-                      asyncSuggestions: (value) async =>
-                      await _handleSearch(value))),
+                  child: StandardSearchBar(
+                      )),
               SizedBox(height: 15,),
               FloatingActionButton(onPressed:() {print('pressed');
               Navigator.push(

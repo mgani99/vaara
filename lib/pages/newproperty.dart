@@ -1,4 +1,4 @@
-import 'package:easy_search_bar/easy_search_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:my_app/pages/tenantpage.dart';
 import 'package:my_app/pages/unitdetailspage.dart';
@@ -7,6 +7,7 @@ import 'package:my_app/model/property.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:standard_searchbar/old/standard_searchbar.dart';
 
 
 class NewProperty extends StatefulWidget {
@@ -180,6 +181,7 @@ class _NewPropertyState extends State<NewProperty> {
      Map<String, dynamic> _aUnit = _units[i];
       LeaseDetails leaseDetails = _aUnit['LeaseDetails'];
       Unit unit = _aUnit['Unit'];
+
       Tenant tenant = _aUnit['Tenant'];
       p.unitIds.add(unit.id);
       RentableModel rentables;
@@ -194,20 +196,32 @@ class _NewPropertyState extends State<NewProperty> {
             tenantId: tenant.id);
       }
       else {
+
         rentables = widget.rentable;
 
       }
+
+
+
       rentables.pictureURL = p.pictureURL;
       rentables.livingSpace = unit.livingSpace;
       rentables.bedrooms = unit.bedrooms;
       rentables.bathrooms = unit.bathrooms;
-
+      rentables.rent = unit.rent;
       propertyModel.addRentables(rentables);
       propertyModel.addLeaseDetail(leaseDetails);
+
       propertyModel.addUnit(unit);
       propertyModel.addTenant(tenant);
     }
-
+    if (widget.insertMode) {
+      Unit mainUnit = Unit("Main", [], 0, "Main Property");
+      mainUnit.unitTypeId = 0;
+      mainUnit.address = p.address;
+      mainUnit.propId = p.id;
+      mainUnit.pictureURL = p.pictureURL;
+      propertyModel.addUnit(mainUnit);
+    }
     propertyModel.add(p);
     Navigator.pop(context);
   }
@@ -262,8 +276,8 @@ class _NewPropertyState extends State<NewProperty> {
     final Map<String, dynamic> returnedData = await Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (context) => UnitDetailsPage(tenant: tenant, leaseDetails: ld, unit: unit,insertMode:widget.insertMode
-            )));setState(() {
+            builder: (context) =>  UnitDetailsPage(tenant: tenant, leaseDetails: ld, unit: unit,insertMode:widget.insertMode,
+            ) ));setState(() {
       if (returnedData != null && returnedData.isNotEmpty) {
         _units[index] = returnedData;
       }
@@ -335,13 +349,28 @@ class _NewPropertyState extends State<NewProperty> {
                     textDirection: TextDirection.ltr,
                     child: TextButton.icon(
                       onPressed: () {_unitCardPressed(index: index,
+                          unit: unit, tenant: tenant, ld: ld);},
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.green,
+                      ),
+                      label: Text(
+                        "New Lease",
+                        style: TextStyle(color: Color(0xFF6200EE)),
+                      ),
+                    ),
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: TextButton.icon(
+                      onPressed: () {_unitCardPressed(index: index,
                       unit: unit, tenant: tenant, ld: ld);},
                       icon: Icon(
                         Icons.mode_edit,
                         color: Colors.green,
                       ),
                       label: Text(
-                        "Edit Unit",
+                        "Edit",
                         style: TextStyle(color: Color(0xFF6200EE)),
                       ),
                     ),
@@ -357,7 +386,7 @@ class _NewPropertyState extends State<NewProperty> {
                         color: Colors.redAccent,
                       ),
                       label: Text(
-                        "Delete Unit",
+                        "Unit",
                         style: TextStyle(color: Colors.redAccent),
                       ),
                     ),
@@ -390,22 +419,8 @@ class _NewPropertyState extends State<NewProperty> {
                 (widget.insertMode) ?SizedBox(
                     height: 56,
                     width: 330,
-                    child: EasySearchBar(
-                        title: const Text('Address'),
-                        onSearch: (value) =>
-                            setState(() => searchValue = value),
-                        actions: [
-                          IconButton(
-                              icon: const Icon(Icons.bungalow_outlined),
-                              onPressed: () {})
-                        ],
-                        isFloating: true,
-                        backgroundColor: Colors.white,
-                        showClearSearchIcon: true,
-                        openOverlayOnSearch: true,
-                        onSuggestionTap: (data) => setAddress(data),
-                        asyncSuggestions: (value) async =>
-                        await _handleSearch(value))) : Container(),
+                    child: StandardSearchBar(
+              )) : Container(),
                 SizedBox(
                   height: 15,
                 ),
@@ -541,36 +556,7 @@ class _NewPropertyState extends State<NewProperty> {
                     ),
               ),
             ),
-      Step(
-          state: currentStep > 1 ? StepState.complete : StepState.indexed,
-          isActive: currentStep >= 1,
-          title: Text("Mortgage & \n Insurance"),
-          content: SizedBox(
-              height: 585,
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start, children: [
-                SizedBox(
-                  height: 15,
-                ),
-                SizedBox(
-                  height: 55,
-                  width: 360,
-                  child: TextFormField(
-                    decoration: InputDecoration(
-                      contentPadding: EdgeInsets.all(10.0),
 
-                      hintText: 'Mortgage and Insurance*',
-                      //filled: true,
-                      //fillColor: const Color(0xfff1f1f1),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.grey),
-                      ),
-                    ),
-                    controller:propertyTypeController,
-                  ),
-                ),
-              ]))),
     ];
   }
 
@@ -692,6 +678,7 @@ class _NewPropertyState extends State<NewProperty> {
               SizedBox(
                 height: 15,
               ),
+
               SizedBox(
                 height: 45,
                 width: 360,

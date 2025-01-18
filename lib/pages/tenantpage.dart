@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:easy_search_bar/easy_search_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:standard_searchbar/old/standard_searchbar.dart';
 
 import '../model/property.dart';
 
@@ -83,18 +84,8 @@ class _TenantPageState extends State<TenantPage> {
                 SizedBox(
                     height: 56,
                     width: 330,
-                    child: EasySearchBar(
-                        title: const Text('Search Tenant'),
-                        onSearch: (value) => setState(() => searchValue = value),
-                        actions: [
-                          IconButton(icon: const Icon(Icons.person), onPressed: () {})
-                        ],
-                        isFloating: true,
-                        backgroundColor: Colors.white,
-                        showClearSearchIcon: true,
-                        openOverlayOnSearch: true,
-                        onSuggestionTap: (data) => setTenant(tenantsMap[data]),
-                        asyncSuggestions: (value) async => await _handleSearch(value))),
+                    child: StandardSearchBar(
+                        )),
                 getContents(),
                 OutlinedButton(
                   onPressed: () {

@@ -96,6 +96,7 @@ class _TransactionPageState extends State<TransactionPage> {
                         'Damage Fee',
                         'Co-payment',
                         'Other Fee',
+                        'Rent Loss',
                         'Roll',
                       ].map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(

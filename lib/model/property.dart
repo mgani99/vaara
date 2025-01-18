@@ -28,7 +28,7 @@ class PropertyModel extends ChangeNotifier {
   List<TransactionSummary> txMap = [];
   List<Issue> _allIssues = [];
   List<Contractor> _allContractors = [];
-
+  List<Expense> _allExpenses = [];
 
   final database = FirebaseDatabase.instance.ref();
 
@@ -39,14 +39,14 @@ class PropertyModel extends ChangeNotifier {
   List<PropertyTransaction> get allTxs => _allTxs;
   List<Issue> get allIssues => _allIssues;
   List<Contractor> get allContractors => _allContractors;
-
+  List<Expense> get allExpenses => _allExpenses;
   PropertyModel(){
     getPropertyStream();
   }
 
   /// Adds [item] to cart. This is the only way to modify the cart from outside.
   void add(Property property) async {
-     // This line tells [Model] that it should rebuild the widgets that
+    // This line tells [Model] that it should rebuild the widgets that
     int index = _properties.indexOf(property);
     if (index != -1) {
       _properties.remove(property);
@@ -81,6 +81,8 @@ class PropertyModel extends ChangeNotifier {
         'firstName' : '${tenant.firstName}','bankAccountId' : '${tenant.bankAccountId}','phoneNumber' : '${tenant.phoneNumber}',
         'email' : '${tenant.email}',}});
 
+
+
     }
     catch(e) {
       print('you haveg ot an error $e');
@@ -110,7 +112,7 @@ class PropertyModel extends ChangeNotifier {
     try {
       await dbPropertyReference.update({'leaseDetails-id-${lease.id}': {'id':'${lease.id}','startDate' : '${lease.startDate}',
         'endDate' : '${lease.endDate}','rent' : '${lease.rent}','tenantId' : '${lease.tenantIds}','securityDeposit':'${lease.securityDeposit}',
-        }});
+      }});
 
     }
     catch(e) {
@@ -128,10 +130,11 @@ class PropertyModel extends ChangeNotifier {
     _allUnits.add(unit);
     final dbPropertyReference = database.child('Reapp/unit');
     try {
-      await dbPropertyReference.update({'unit-id-${unit.id}': {'id':'${unit.id}','name' : '${unit.name}',
+      await dbPropertyReference.update({'${unit.id}': {'id':'${unit.id}','name' : '${unit.name}',
         'type' : '${unit.unitType}','leaseHistory' : '${unit.leaseHistory}',
         'currentLeaseId' : '${unit.currentLeaseId}','bathrooms' : '${unit.bathrooms}','bedrooms' : '${unit.bedrooms}','livingSpace' : '${unit.livingSpace}',
       }});
+      /*await dbPropertyReference.update({'${unit.id}': unit.toJson()});*/
 
     }
     catch(e) {
@@ -140,19 +143,19 @@ class PropertyModel extends ChangeNotifier {
 
   }
   late StreamSubscription<Property> _streamProperty;
-   void getPropertyStream() {
-     final dbPropertyReference = database.child('Reapp/properties');
+  void getPropertyStream() {
+    final dbPropertyReference = database.child('Reapp/properties');
 
-     database.child('Reapp/properties').onValue.listen((event)
-     { print('value changed $event');loadPriorityProperties();});
+    database.child('Reapp/properties').onValue.listen((event)
+    { print('value changed $event');loadPriorityProperties();});
 
-   }
+  }
 
-   @override
-   void dispose(){
-     _streamProperty.cancel();
-     super.dispose();
-   }
+  @override
+  void dispose(){
+    _streamProperty.cancel();
+    super.dispose();
+  }
 
 
   Future<void> loadPriorityProperties() async {
@@ -162,12 +165,12 @@ class PropertyModel extends ChangeNotifier {
       currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(DateTime.now()) ;
     }
     _allRentables = await DatabaseService.getRentables();
-   _allRentables.sort();
+    _allRentables.sort();
     _properties = await DatabaseService.getProperties();
     _allUnits = await DatabaseService.getUnits();
     _allContractors = await DatabaseService.getContractors();
     _allTxs = await DatabaseService.getTransactions();
-
+    _allExpenses = await DatabaseService.getExpenses();
     _allIssues = await DatabaseService.getIssues();
     //create map for month based transactions
 
@@ -194,8 +197,10 @@ class PropertyModel extends ChangeNotifier {
 
     }
     txMap.sort();
+
     notifyListeners();
   }
+
 
   void remove(Property prop) {
     _properties.remove(prop);
@@ -212,9 +217,9 @@ class PropertyModel extends ChangeNotifier {
   }
 
   void rollDate() {
-     DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(currentMonth);
-     dt = DateTime(dt.year, dt.month + 1, dt.day);
-     currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(dt);
+    DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(currentMonth);
+    dt = DateTime(dt.year, dt.month + 1, dt.day);
+    currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(dt);
     txMap.forEach((element) {
       if (element.balance != 0.0) {
         PropertyTransaction tx = PropertyTransaction(debitOrCredit: (element.balance < 0.0 ? PageStatics.CREDIT_FOR_DEBIT_OR_CREDIT : PageStatics.DEBIT_FOR_DEBIT_OR_CREDIT),
@@ -235,11 +240,11 @@ class PropertyModel extends ChangeNotifier {
       print('you Error saving Unit ot an error $e');
     }
     //get new transactions set based on the month
-     buildAndSaveTransactionMap(currentMonth);
+    buildAndSaveTransactionMap(currentMonth);
     notifyListeners();
   }
 
- 
+
 
   void addRentables(RentableModel rentables) async{
     int index = allCards.indexOf(rentables);
@@ -274,15 +279,15 @@ class PropertyModel extends ChangeNotifier {
   }
 
   List<PropertyTransaction> getTxByRentableId(int rentable) {
-     List<PropertyTransaction> retVal = [];
-     for (int i=0;i<_allTxs.length;i++) {
-       if(allTxs[i].rentableId == rentable) retVal.add(allTxs[i]);
-     }
-     return retVal;
+    List<PropertyTransaction> retVal = [];
+    for (int i=0;i<_allTxs.length;i++) {
+      if(allTxs[i].rentableId == rentable) retVal.add(allTxs[i]);
+    }
+    return retVal;
   }
 
   void updateTxBalance(PropertyTransaction tx)async{
-     //
+    //
   }
 
   void addTransaction(PropertyTransaction tx) async{
@@ -311,14 +316,14 @@ class PropertyModel extends ChangeNotifier {
   }
 
   Property getProperty(int propId) {
-     Property retVal = Property.nullProperty();
-     retVal.id = propId;
-     final index = _properties.indexOf(retVal);
-     if (index != -1) {
-       retVal = _properties[index];
-     }
-     return retVal;
-   }
+    Property retVal = Property.nullProperty();
+    retVal.id = propId;
+    final index = _properties.indexOf(retVal);
+    if (index != -1) {
+      retVal = _properties[index];
+    }
+    return retVal;
+  }
 
   Tenant getTenant(int tenantId) {
     Tenant retVal = Tenant.nullTenant();
@@ -332,13 +337,13 @@ class PropertyModel extends ChangeNotifier {
   }
 
   Unit getUnit(int unitId) {
-     Unit retVal = Unit.nullUnit();
-     retVal.id = unitId;
-     final index = _allUnits.indexOf(retVal);
-     if (index != -1) {
-       retVal = _allUnits[index];
-     }
-     return retVal;
+    Unit retVal = Unit.nullUnit();
+    retVal.id = unitId;
+    final index = _allUnits.indexOf(retVal);
+    if (index != -1) {
+      retVal = _allUnits[index];
+    }
+    return retVal;
   }
 
   LeaseDetails getLeaseDetail(int currentLeaseId) {
@@ -352,9 +357,9 @@ class PropertyModel extends ChangeNotifier {
   }
 
   RentableModel getRentableModel(int rentableModelId) {
-     RentableModel retVal = RentableModel.nullCardViewModel();
-     RentableModel rentable =
-         (allCards.where((element) => element.id == rentableModelId)).first;
+    RentableModel retVal = RentableModel.nullCardViewModel();
+    RentableModel rentable =
+        (allCards.where((element) => element.id == rentableModelId)).first;
     if (rentable != null) retVal = rentable;
     return retVal;
   }
@@ -486,7 +491,7 @@ class PropertyModel extends ChangeNotifier {
   }
 
   void addIssue(Issue newIssue) async{
-     print('saving issue $newIssue');
+    print('saving issue $newIssue');
     int index = allIssues.indexOf(newIssue);
     if (index != -1) {
       allIssues.remove(newIssue);
@@ -529,6 +534,44 @@ class PropertyModel extends ChangeNotifier {
 
     // depend on it.
     notifyListeners();
+  }
+
+  LeaseDetails getLeaseDetailsForTxSummary(TransactionSummary tx) {
+    LeaseDetails retVal = LeaseDetails.nullLeaseDetails();
+    RentableModel rm = getRentableModel(tx.rentableId);
+    if (rm != null) {
+      retVal = getLeaseDetail(rm.leaseDetailsId);
+    }
+    return retVal;
+  }
+
+  void addExpense(Expense expense) async{
+    print('saving Expense $expense');
+    int index = allExpenses.indexOf(expense);
+    if (index != -1) {
+      allExpenses.remove(expense);
+      print('removing $expense');
+    }
+    allExpenses.add(expense);
+    final dbPropertyReference = database.child(DatabaseService.EXPENSE_REF);
+    //String formattedDt = DateFormatc(PropertyModel.PAYMENT_DATE_FORMAT).format(newIssue.dateOfIssue);
+    try {
+      await dbPropertyReference.update({'expense-id-${expense.id}': expense.toJson()});
+
+
+    }
+    catch(e) {
+      print('you Error saving Unit ot an error $e' );
+    }
+
+    // depend on it.
+    notifyListeners();
+  }
+
+  RentableModel getRentableModelForUnit(int unitId) {
+    return _allRentables.where((element) => element.unitId == unitId).isNotEmpty?
+      _allRentables.where((element) => element.unitId == unitId).single : RentableModel.nullCardViewModel();
+
   }
 
 
@@ -647,22 +690,22 @@ class Issue implements Comparable<Issue> {
     data['paidStatus'] = this.paidStatus;
     data['comment'] = this.comment;
     data['imageUrls'] = jsonEncode(this.imageUrls);
-        return data;
+    return data;
   }
 
   static Issue nullIssue() {
     var retVal =  Issue(status: "Open",title:"",
-    description : "",
-    rentableId : 0,
-    dateOfIssue: DateTime.now(),);
+      description : "",
+      rentableId : 0,
+      dateOfIssue: DateTime.now(),);
     return retVal;
   }
 
-   factory Issue.fromMap(Map<dynamic,dynamic> map) {
+  factory Issue.fromMap(Map<dynamic,dynamic> map) {
 
     Issue retVal = Issue(title: map['title'] ?? "", description : map['description'] ?? "",
         rentableId: map['rentableId']?? 0, dateOfIssue: DateFormat("MM/dd/yy hh:mm:ss").parse(map['dateOfIssue'] ?? DateTime.now()),
-       status: map['status']??"");
+        status: map['status']??"");
     retVal.id = map['id']??0;
     retVal.laborCost = double.parse(map['laborCost'])?? 0.0;
     retVal.materialCost = double.parse(map['materialCost'])??0.0;
@@ -676,6 +719,88 @@ class Issue implements Comparable<Issue> {
 
   }
 }
+
+
+@immutable
+class Expense implements Comparable<Expense> {
+
+  int id= 0;
+  String category = "";
+  String description="";
+  int unitId = 0;
+  int propertyId = 0;
+  double amount =0.0;
+  DateTime dateOfExpense = DateTime.now();
+  String comment = "";
+  int issueId=0; //for repair related expenses
+
+
+  Expense({
+
+    required this.category,
+    required this.unitId,
+    required this.propertyId,
+    required this.amount,
+    required this.dateOfExpense,
+  }) {
+    if (id == 0 || id == 1) {
+      id = category.hashCode + unitId.hashCode + dateOfExpense.hashCode + propertyId.hashCode;
+    }
+
+  }
+  @override
+  bool operator ==(Object other) => other is Expense && other.id == id ;
+
+  @override
+  int compareTo(Expense other) {
+
+    return (dateOfExpense).compareTo(other.dateOfExpense) ;
+
+  }
+
+   //static final  allCats = ;
+
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    String dt = DateFormat("MM/dd/yy hh:mm:ss").format(dateOfExpense);
+    data['id'] = this.id;
+    data['category'] = this.category;
+    data['description'] = this.description;
+    data['unitId'] = this.unitId;
+    data['propertyId'] = this.propertyId;
+    data['amount'] = this.amount.toString();
+    data['issueId'] = this.issueId;
+    data['dateOfExpense'] = dt;
+    data['comment'] = this.comment;
+    return data;
+  }
+
+  static Expense nullIssue() {
+    var retVal =  Expense(category: "",
+      unitId : 0,amount : 0.0,propertyId : 0,
+      dateOfExpense: DateTime.now(),);
+    return retVal;
+  }
+
+  factory Expense.fromMap(Map<dynamic,dynamic> map) {
+
+    Expense retVal = Expense(category: map['category'] ?? "", amount: double.parse(map['amount'])?? 0.0,
+      unitId: map['unitId']?? 0,propertyId: map['propertyId']?? 0, dateOfExpense: DateFormat("MM/dd/yy hh:mm:ss").parse(map['dateOfExpense'] ?? DateTime.now()),
+    );
+    retVal.id = map['id']??0;
+
+    retVal.comment = map['comment']??"";
+
+    retVal.issueId = map['issueId']??0;
+    retVal.description = map['description'];
+
+    return retVal;
+
+  }
+}
+
+
 @immutable
 class PropertyTransaction implements Comparable<PropertyTransaction> {
   int id= 0;
@@ -752,6 +877,7 @@ class TransactionSummary implements Comparable<TransactionSummary>{
   double balance =0.0;
   String monthAndYear = "" ; //mmYY
   List<PropertyTransaction> txs = [];
+  Map<String, int> tokens = {};
 
 
   TransactionSummary({
@@ -762,6 +888,7 @@ class TransactionSummary implements Comparable<TransactionSummary>{
     required this.totalDebit,
     required this.balance,
     required this.monthAndYear,
+
   }) {
     if (id == 0 || id == 1) {
       id = rentableName.hashCode;
@@ -772,7 +899,7 @@ class TransactionSummary implements Comparable<TransactionSummary>{
 
   @override
   int compareTo(TransactionSummary other) {
-      return (rentableName).compareTo(other.rentableName);
+    return (rentableName).compareTo(other.rentableName);
 
   }
 
@@ -782,7 +909,22 @@ class TransactionSummary implements Comparable<TransactionSummary>{
     retVal.id = int.parse(map['id']??"0");
     List<dynamic> allTxDynamic = List<dynamic>.from(json.decode(map['txs']??[]));
     allTxDynamic.forEach((element) {retVal.txs.add(PropertyTransaction.fromMap(element));});
+    if (retVal.rentableName != null) {
 
+      retVal.tokens[retVal.rentableName.toUpperCase()] = 1;
+      retVal.tokens.addAll({for (var item in retVal.rentableName.toUpperCase().split("-")) '$item' : 1 });
+      retVal.tokens.addAll({for (var item in retVal.rentableName.toUpperCase().split(" ")) '$item' : 1 });
+      List<String> subString=[];
+      (retVal.tokens.keys.toList()).forEach((element){
+        for (int i=2;i<=element.length;i++) {
+          subString.add(element.substring(0,i));
+        }
+      });
+      retVal.tokens.addAll({for (var item in subString) '$item' : 1 });
+      //print(retVal);
+      // return retVal;
+
+    }
     return retVal;
 
   }
@@ -801,7 +943,7 @@ class RentableModel implements Comparable<RentableModel>{
   int id= 0;
   final String propName;
   final String propAddress;
-   double rent = 0.0;
+  double rent = 0.0;
   final int propId;
   final String unitName;
   final int leaseDetailsId;
@@ -851,18 +993,51 @@ class RentableModel implements Comparable<RentableModel>{
 }
 
 @immutable
-class Unit {
+class Unit implements Comparable<Unit> {
   int id =0;
   final String name;
-  final String unitType;
+  final String unitType; //main, apartment, garage, parking
   final List<int> leaseHistory;
   final int currentLeaseId;
   int bedrooms = 0;
   double bathrooms= 0;
   int livingSpace= 0;
+
+
+  int unitTypeId=4; //main house is always 0, apartment by default 1, garage 2, parking 3, all other 4;
+  String address="";
+  double rent = 0.0;
+  int propId=0;
+  int tenantId=0;
+  String pictureURL = "";
+
+
+
+
   Unit( this.unitType, this.leaseHistory, this.currentLeaseId, this.name){
     if (id ==0 || id==1) id = name.hashCode + unitType.hashCode + currentLeaseId.hashCode;
   }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+
+    data['id'] = this.id;
+    data['name'] = this.name;
+    data['unitType'] = this.unitType;
+    data['currentLeaseId'] = this.currentLeaseId;
+    data['bedrooms'] = this.bedrooms;
+    data['bathrooms'] = this.bathrooms;
+    data['livingSpace'] = this.livingSpace;
+    data['unitTypeId'] = this.unitTypeId;
+    data['address'] = this.address;
+    data['rent'] = this.rent;
+    data['propId'] = this.propId;
+    data['tenantId'] = this.tenantId;
+    data['leaseHistory'] = jsonEncode(this.leaseHistory);
+    data['pictureURL'] = this.pictureURL;
+    return data;
+  }
+
 
   @override
   bool operator ==(Object other) => other is Unit && other.id == id;
@@ -880,12 +1055,36 @@ class Unit {
   @override
   int get hashCode => id;
   static fromMap(Map<dynamic,dynamic> map) {
-    var retVal= Unit((map['type']) ?? "", [],int.parse(map['currentLeaseId']??"0") , map['name'] ?? "");
-    retVal.id = int.parse(map['id']??"0");
-    retVal.bathrooms = (map.containsKey('bathrooms')) ? double.parse(map['bathrooms']??"0.0") : 0;
-    retVal.bedrooms = int.parse(map['bedrooms']??"0");
-    retVal.livingSpace = int.parse(map['livingSpace']??"0");
+
+    var retVal = Unit(
+        (map['type']) ?? "", [], int.parse(map['currentLeaseId'] ?? "0"),
+        map['name'] ?? "");
+    retVal.id = int.parse(map['id'] ?? "0");
+    retVal.bathrooms = (map.containsKey('bathrooms'))
+        ? double.parse(map['bathrooms'] ?? "0.0")
+        : 0;
+    retVal.bedrooms = int.parse(map['bedrooms'] ?? "0");
+    retVal.livingSpace = int.parse(map['livingSpace'] ?? "0");
+
+    retVal.unitTypeId = map['unitTypeId'] ?? 0;
+    retVal.address = map['address'] ?? "";
+    //  retVal.rent =  map['rent'] ?? 0.0;
+    retVal.propId = map['propId'] ?? 0;
+    retVal.tenantId = map['tenantId'] ?? 0;
+    retVal.pictureURL = map['pictureURL'] ?? "";
+
+
+
+
     return retVal;
+  }
+
+  @override
+  int compareTo(Unit other) {
+    // TODO: implement compareTo
+    if (this.unitTypeId != other.unitTypeId) return this.unitTypeId.compareTo(other.unitTypeId);
+    return name.compareTo(other.name);
+
   }
 
 }
@@ -928,6 +1127,7 @@ class Tenant {
   final String bankAccountId;
   final String phoneNumber;
   final String email;
+  Map<String, int> tokens = {};
 
   Tenant(this.lastName, this.firstName, this.bankAccountId, this.phoneNumber, this.email){
     if (id == 0 || id == 1) id = (lastName + firstName + phoneNumber + email).hashCode;
@@ -946,6 +1146,18 @@ class Tenant {
     Tenant retVal = Tenant.nullTenant();
     retVal = Tenant(map['lastName'], map['firstName'], map['bankAccountId'], map['phoneNumber'], map['email']);
     retVal.id = int.parse(map['id']??"0");
+
+    retVal.tokens[retVal.firstName.toUpperCase()] = 1;
+    retVal.tokens[retVal.lastName.toUpperCase()] = 1;
+
+    List<String> subString=[];
+    (retVal.tokens.keys.toList()).forEach((element){
+      for (int i=2;i<=element.length;i++) {
+        subString.add(element.substring(0,i));
+      }
+    });
+    retVal.tokens.addAll({for (var item in subString) '$item' : 1 });
+    //print(retVal);
     return retVal;
   }
 
@@ -979,21 +1191,21 @@ class Property {
     // TODO: implement toString
     return retVal;
   }
-   Property.nullProperty() :
-    name = "",
-    address = "",
-    unitIds = [],
-    propertyType = "";
+  Property.nullProperty() :
+        name = "",
+        address = "",
+        unitIds = [],
+        propertyType = "";
 
- factory Property.fromMap(Map<dynamic,dynamic> map) {
+  factory Property.fromMap(Map<dynamic,dynamic> map) {
 
-   var retVal = Property(name: map['name'] ?? '',
-       address: map['address'] ?? '',
-       unitIds: List<int>.from(json.decode(map['rentalUnits']) ??[0]) ,
-       propertyType: map['propertyType'] ?? '');
-   retVal.id = int.parse(map['id']??"0");
-   retVal.pictureURL = map.containsKey('pictureURL') ? map['pictureURL'] ?? '' : '';
-   return retVal;
+    var retVal = Property(name: map['name'] ?? '',
+        address: map['address'] ?? '',
+        unitIds: List<int>.from(json.decode(map['rentalUnits']) ??[0]) ,
+        propertyType: map['propertyType'] ?? '');
+    retVal.id = int.parse(map['id']??"0");
+    retVal.pictureURL = map.containsKey('pictureURL') ? map['pictureURL'] ?? '' : '';
+    return retVal;
 
   }
 }
