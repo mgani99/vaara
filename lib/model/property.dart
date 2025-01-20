@@ -545,6 +545,24 @@ class PropertyModel extends ChangeNotifier {
     return retVal;
   }
 
+  void removeExpense(Expense tx) async{
+    final dbPropertyReference = database.child(DatabaseService.EXPENSE_REF+"//expense-id-${tx.id}");
+    //String formattedDt = DateFormat(PropertyModel.PAYMENT_DATE_FORMAT).format(tx.dateOfTx);
+    try {
+      await dbPropertyReference
+          .once()
+          .then((snapshot){snapshot!.snapshot.ref.remove();});
+
+
+    }
+    catch(e) {
+      print('you Error removing Unit ot an error $e');
+    }
+    allExpenses.remove(tx);
+    allExpenses.sort();
+    // depend on it.
+    notifyListeners();
+  }
   void addExpense(Expense expense) async{
     print('saving Expense $expense');
     int index = allExpenses.indexOf(expense);
@@ -776,7 +794,7 @@ class Expense implements Comparable<Expense> {
     return data;
   }
 
-  static Expense nullIssue() {
+  static Expense nullExpense() {
     var retVal =  Expense(category: "",
       unitId : 0,amount : 0.0,propertyId : 0,
       dateOfExpense: DateTime.now(),);

@@ -4,7 +4,9 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
 }
-
+dependencies {
+    implementation 'com.android.support:multidex:2.0.1'
+}
 android {
     namespace = "com.example.my_app"
     compileSdk = flutter.compileSdkVersion

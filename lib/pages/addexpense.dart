@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import '../services/GoogleAuth.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({super.key});
+  Expense expense;
+  bool editMode = false;
+  AddExpenseScreen({super.key, required this.expense, required this.editMode});
 
   @override
   _AddExpenseScreenState createState() => _AddExpenseScreenState();
@@ -23,7 +25,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Unit? propUnit;
   @override
   void didChangeDependencies() {
+    super.didChangeDependencies();
     propertyModel = context.watch<PropertyModel>();
+    if (this.widget.editMode) {
+      setState(() {
+        amountController.text = this.widget.expense.amount.toString();
+        this.propertyName = propertyModel.getProperty(this.widget.expense.propertyId);
+        this._category = this.widget.expense.category;
+        //editMode = true;
+
+      });
+
+    }
   }
   bool unitShow = false;
 
@@ -41,6 +54,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(leading: BackButton(
+        onPressed: () => Navigator.of(context).pop(),
+      ),),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -175,16 +191,41 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     _amount = 0.0;
                     _isIncome = false;
                     _selectedDate = DateTime.now();
+                    this.widget.editMode = false;
                     ScaffoldSnackbar.of(context).show('Expense updated');
                     setState(() {});
                   }
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('Add Transaction'),
+                label: const Text('Save Expense'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
+
+              this.widget.editMode ?
+                ElevatedButton.icon(
+                  onPressed: () {
+
+                      propertyModel.removeExpense(this.widget.expense);
+                      // Reset form after submission
+
+                      ScaffoldSnackbar.of(context).show('Expense deleted');
+                      setState(() { _category = 'Repair';
+                      _amount = 0.0;
+                      _isIncome = false;
+                      _selectedDate = DateTime.now();
+                      this.widget.editMode = false;
+                      this.widget.expense = Expense.nullExpense();});
+
+                  },
+                  icon: const Icon(Icons.delete),
+                  label: const Text('Delete Expense'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                )
+              : Container(),
             ],
           ),
         ),

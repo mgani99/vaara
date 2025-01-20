@@ -13,13 +13,13 @@ import 'package:my_app/model/property.dart';
 import 'package:my_app/pages/PageStatics.dart';
 import 'package:my_app/pages/addexpense.dart';
 import 'package:my_app/pages/allproperty.dart';
+import 'package:my_app/pages/repair.dart';
 import 'package:my_app/pages/expensespage.dart';
 import 'package:my_app/pages/issue.dart';
 import 'package:my_app/pages/login.dart';
 import 'package:my_app/pages/newissue.dart';
 import 'package:my_app/pages/newproperty.dart';
 import 'package:my_app/pages/rentpayment.dart';
-import 'package:my_app/pages/repair.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -95,22 +95,22 @@ class _MyApp extends State<MyHomePage> {
 
   List<Widget> getActions(int body) {
     switch (body) {
-      case 1:
+      case 2:
         return [
           IconButton(
               icon: const Icon(Icons.add_rounded),
               onPressed: () {
                 Navigator.push(
                   context,
-                  //MaterialPageRoute(builder: (context) =>   NewProperty(rentable: RentableModel.nullCardViewModel(), insertMode: true,)),
-                  MaterialPageRoute(builder: (context) =>   AddExpenseScreen()),
+                  MaterialPageRoute(builder: (context) =>   NewProperty(rentable: RentableModel.nullCardViewModel(), insertMode: true,)),
+                  //MaterialPageRoute(builder: (context) =>   AddExpenseScreen()),
                 );
               }
           ),
 
           // Home Screen
         ];
-      case 2:
+      case 3:
         return [
           IconButton(
               icon: const Icon(Icons.add_rounded),
@@ -126,6 +126,18 @@ class _MyApp extends State<MyHomePage> {
 
                             )));
               }),
+        ];
+      case 1:
+        return [
+          IconButton(
+              icon: const Icon(Icons.add_rounded),
+              onPressed: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) =>   AddExpenseScreen(expense: Expense.nullExpense(), editMode: false,)),);
+              }),
+
+
         ];
       default:
         return [];
@@ -195,14 +207,14 @@ class _MyApp extends State<MyHomePage> {
         );
 
 
-      case 1:
+      case 2:
         return AppBar(
           title: const Text("Properties"),
           actions: getActions(_selectedIndex),
           elevation: 8,
         );
         break;
-      case 2:
+      case 1:
         return AppBar(
           title: const Text("Expenses"),
           actions: getActions(_selectedIndex),
@@ -220,8 +232,9 @@ class _MyApp extends State<MyHomePage> {
   }
   static List<Widget> _pages = <Widget>[
     Container(),
+    AllExpensesPage(),
     ListViewHome(),
-    //RepairPage(),
+
     IssuePage(),
     //RepairPage(),
   ];
@@ -292,6 +305,7 @@ class _MyApp extends State<MyHomePage> {
 
               ),
               bottomNavigationBar: BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
 
                 items: const <BottomNavigationBarItem>[
                   BottomNavigationBarItem(
@@ -300,12 +314,17 @@ class _MyApp extends State<MyHomePage> {
 
                   ),
                   BottomNavigationBarItem(
+                    icon: Icon(Icons.data_exploration_outlined),
+                    label: 'Expenses',
+
+                  ),
+                  BottomNavigationBarItem(
                     icon: Icon(Icons.home_work_rounded),
                     label: 'Properties',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.account_balance_rounded),
-                    label: 'Expenses',
+                    label: 'Repair',
                   ),
 
                 ],

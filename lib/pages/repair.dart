@@ -1,12 +1,12 @@
-import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-//import '../model/property.dart';
-
-
-
+import 'package:intl/intl.dart';
+import 'package:my_app/pages/PageStatics.dart';
+import 'package:my_app/pages/newissue.dart';
+import 'package:my_app/services/TransactionService.dart';
+import 'package:provider/provider.dart';
+import '../model/property.dart';
 
 
 class RepairPage extends StatefulWidget {
@@ -18,10 +18,8 @@ class RepairPage extends StatefulWidget {
 
 class RepairPageHome extends State<RepairPage> {
   Map<String, int> rentalVal = {};
-  //late PropertyModel propertyModel;
+  late PropertyModel propertyModel;
   String issueStatus = "Open";
-  final widgetKey1 = GlobalKey();
-  final widgetKey2 = GlobalKey();
   @override
   void initState() {
     // TODO: implement initState
@@ -29,354 +27,325 @@ class RepairPageHome extends State<RepairPage> {
   }
   @override
   void didChangeDependencies() {
-
+    propertyModel = context.watch<PropertyModel>();
+    initRentVal(propertyModel);
+    getIssueList(0);//initialize w/ all first;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Column(
-        children: getTitle()
+     TabBar upperTab =  TabBar(indicatorColor: Colors.white, tabs: <Tab>[
+      Tab(child: Text("Open Expenses", style: TextStyle(fontFamily: "BarlowBold", color: Colors.black, fontSize: 18))),
+      Tab(child: Text("All Expenses", style: TextStyle(fontFamily: "BarlowBold", color: Colors.black, fontSize: 18))),
 
-      ),
-    );
-  }
-
-
-  List<Widget> getTitle() {
-
-    return [
+    ],
+   onTap:  (index) {setState(() {
+     issueStatus = index ==0 ? "Open" : "All";
+   });});
 
 
-          Container(
-
-             height: 150,
-             width :  MediaQuery.of(context).size.width-5,
-             child:  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                 children:[
-              _buildUserStatsItem("23", "Rented", "0", "Vacant",Colors.blue[200]!),
-               _buildUserStatsItem("5", "Paid Full", "18", "Paid Partial",Colors.green[200]!),
-               _buildUserStatsItem("\$21,000", "Recieved", "\$21,900", "Balance", Colors.purple[200]!),
-            ])
-          ),
-          Container(
-            height: 140,
-            decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(
-                  left: BorderSide(color: Colors.blue[200]!, width: 3.0),
-                  top: BorderSide(color: Colors.blue[200]!, width: 3.0),
-                  right: BorderSide(color: Colors.blue[200]!, width: 3.0)),
-              image: DecorationImage(image: CachedNetworkImageProvider("https://photos.zillowstatic.com/fp/38717538eade4f49410d749d0d884b74-cc_ft_768.webp"),
-              fit : BoxFit.cover),
-            ),
-            child: Container(
-              height: 140,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.blueGrey.withOpacity(0.8),
-                    Colors.blueGrey.withOpacity(0.6),
-
-                  ],
-                  stops: [0.0,1],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight
-                )
-              ),
-              child:  Align(
-                alignment: Alignment.topLeft,
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  margin: EdgeInsets.only(top:2,left: 10),
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Row(crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children:[Icon(Icons.home, color: Colors.white,),Text("Pine Ridge Rd", style: TextStyle(fontSize: 18,color: Colors.white),),]),
-                        SizedBox(height: 5,),
-                        FittedBox(fit: BoxFit.contain, child: Text("3702 Pine Ridge Rd, Orland FL 32808", style: TextStyle(color: Colors.white,fontSize: 16),)),
-
-                        Row(children:[Text("1 Unit\u27394Beds\u27392.5Ba\u27391500 ft ", style: TextStyle(color: Colors.white,fontSize: 14),),
-                        Spacer(),
-                        IconButton(onPressed: (){}, icon: Icon(Icons.more_vert,color: Colors.white,),)])
-                    ],
-                ),
-              ),
-            ),
-            ),),
-
-      Card(
-        elevation: 4,
-        margin: EdgeInsets.zero,
-        color: Colors.white,
-
-        shape:
-        Border( bottom: BorderSide(color: Colors.blue[200]!, width: 3.0),
-            right: BorderSide(color: Colors.blue[200]!, width: 3.0)
+    return
+      DefaultTabController(
+        length: 2,
+        child: Scaffold(
+        appBar:  PreferredSize(
+        preferredSize: Size(30, 220),
+        child:  SizedBox(width: 40,height: 70,
+          child: Card(
+            elevation: 20.0,
+            //color: Theme.of(context).primaryColor,
+            child:upperTab),
         ),
-        child: InkWell(
-          onTap: (){},
-          onDoubleTap: (){print('double tap');},
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 110,
-                child:Center(
-                  child: RotatedBox(
-                      quarterTurns: 3,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-
-                          Text("Main Unit", style: TextStyle(fontSize: 14, color: Colors.black),),
-                          FittedBox(fit: BoxFit.contain, child: Text("Pine Ridge Rd", style: TextStyle(fontSize:12,color: Colors.black.withOpacity(0.5)),)),
-                        ],
-                      )),
-                ),
-                decoration: BoxDecoration(
-                    color: Colors.blue[200],
-                    borderRadius:
-                    BorderRadius.horizontal(left: Radius.zero)),
-              ),
-              Container(
-                width: MediaQuery.of(context).size.width-110,
-                height: 110,
-
-                decoration: BoxDecoration(
-                    //color: Colors.white70,
-                    borderRadius:
-                    BorderRadius.horizontal(right: Radius.zero)),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8.0,4,4,4),
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[RichText(text: TextSpan(text: "Sarai Pola", style: TextStyle(fontSize: 18, color: Colors.black),
-                          children:[
-                          TextSpan(text: "  (\$1,500/monthly)", style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)))])),
-
-                  Row(children: [Icon(Icons.key_rounded,color: Colors.grey.withOpacity(0.6),),
-                    Text(" 2/1/24 - 2/1/25 (Yearly)", style: TextStyle(color: Colors.black.withOpacity(0.6)),),
-                  //Spacer(),
-
-                  ]),
-                  Text("\$200.00", style: TextStyle(fontSize: 18),),
-                        Text("Tenant Balance", style: TextStyle(color: Colors.black.withOpacity(0.6))),
-
-                      ]),
-                ),
-              ),
-              Container(width:30, height: 110, child:
-              GestureDetector(
-                key: widgetKey1,
-                child: IconButton(onPressed: (){
-          showMenu(
-            items: <PopupMenuEntry>[
-              PopupMenuItem(
-                //value: this._index,
-                child: Row(
-                  children: const [Text("Context item 23")],
-                ),
-              )
-            ],
-            context: context,
-            position: _getRelativeRect(widgetKey1),
-          );
-                }, icon: Icon(Icons.more_vert_sharp, color: Colors.black.withOpacity(0.6),)),
-              )),
-            ],
-          ),
         ),
-      ),
-      SizedBox(height: 5,),
-      Card(
-        margin: EdgeInsets.fromLTRB(0,8,0,0),
-        elevation: 8,
-        child: Container(
-          height: 140,
-          decoration: BoxDecoration(
-            color: Colors.green[200],
-            border: Border(
-                left: BorderSide(color: Colors.green[200]!, width: 3.0),
-                top: BorderSide(color: Colors.green[200]!, width: 3.0),
-                right: BorderSide(color: Colors.green[200]!, width: 3.0)),
-            image: DecorationImage(image: CachedNetworkImageProvider("https://photos.zillowstatic.com/fp/eac57ce7f97b0498027423bfbe7cbc54-cc_ft_384.webp"),
-                fit : BoxFit.cover),
-          ),
-          child: Container(
-            height: 140,
+          body:  TabBarView(
+        children: [
+        allIssue(),
+        allIssue(),
 
-            decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    colors: [
-                      Colors.blueGrey.withOpacity(0.8),
-                      Colors.blueGrey.withOpacity(0.6),
-        
-                    ],
-                    stops: [0.0,1],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight
-                )
-            ),
-            child:  Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                width: MediaQuery.of(context).size.width,
-                margin: EdgeInsets.only(top:2,left: 10),
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Row(crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children:[Icon(Icons.home, color: Colors.white,),Text("89th St", style: TextStyle(fontSize: 18,color: Colors.white),),]),
-                    SizedBox(height: 5,),
-                    FittedBox(fit: BoxFit.contain,child: Text("37-54 89th St,Jackson Heights NY 11372", style: TextStyle(color: Colors.white,fontSize: 16),)),
-        
-                    Row(children:[Text("5 Units\u273911Beds\u27395Ba\u27393700 ft ", style: TextStyle(color: Colors.white,fontSize: 14),),
-                      Spacer(),
-                      IconButton(onPressed: (){}, icon: Icon(Icons.more_vert,color: Colors.white,),)])
-                  ],
-                ),
-              ),
-            ),
-          ),),
-      ),
-
-      Card(
-        elevation: 4,
-        margin: EdgeInsets.zero,
-        color: Colors.white,
-
-        shape:
-           Border( bottom: BorderSide(color: Colors.green[200]!, width: 3.0),
-               right: BorderSide(color: Colors.green[200]!, width: 3.0)
-        ),
-        child: InkWell(
-          onTap: (){},
-          onDoubleTap: (){print('double tap');},
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 110,
-                child:Center(
-                  child: RotatedBox(
-                      quarterTurns: 3,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-
-                          Text("Basement", style: TextStyle(fontSize: 14, color: Colors.black),),
-                          FittedBox(fit: BoxFit.contain,child: Text("89th St", style: TextStyle(fontSize:12,color: Colors.black.withOpacity(0.5)),)),
-                        ],
-                      )),
-                ),
-                decoration: BoxDecoration(
-                    color: Colors.green[200],
-                    borderRadius:
-                    BorderRadius.horizontal(left: Radius.zero)),
-              ),
-              Container(
-                width: MediaQuery.of(context).size.width-110,
-                height: 110,
-
-                decoration: BoxDecoration(
-                  //color: Colors.white70,
-                    borderRadius:
-                    BorderRadius.horizontal(right: Radius.zero)),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8.0,4,4,4),
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[RichText(text: TextSpan(text: "Miguel Karman", style: TextStyle(fontSize: 18, color: Colors.black),
-                          children:[
-                            TextSpan(text: "  (\$2,000/monthly)", style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)))])),
-
-                        Row(children: [Icon(Icons.key_rounded,color: Colors.grey.withOpacity(0.6),),
-                          Text(" 1/1/24 - 1/1/25 (Yearly)", style: TextStyle(color: Colors.black.withOpacity(0.6)),),
-                          //Spacer(),
-
-                        ]),
-                        Text("\$200.00", style: TextStyle(fontSize: 18),),
-                        Text("Tenant Balance", style: TextStyle(color: Colors.black.withOpacity(0.6))),
-
-                      ]),
-                ),
-              ),
-              Container(width:30, height: 110, child:
-              GestureDetector(
-                key: widgetKey1,
-                child: IconButton(onPressed: (){
-                  showMenu(
-                    items: <PopupMenuEntry>[
-                      PopupMenuItem(
-                        //value: this._index,
-                        child: Row(
-                          children: const [Text("Context item 23")],
-                        ),
-                      )
-                    ],
-                    context: context,
-                    position: _getRelativeRect(widgetKey1),
-                  );
-                }, icon: Icon(Icons.more_vert_sharp, color: Colors.black.withOpacity(0.6),)),
-              )),
-            ],
-          ),
-        ),
-      ),
-
-    ];
-
-  }
-
-  _buildUserStatsItem(String s, String t, String s2, String t2, Color c) {
-    return Container(
-      decoration: BoxDecoration(
-        color: c,
-      ),
-      height: 130,
-      width: (MediaQuery.of(context).size.width/3)-15,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Text(s, style: TextStyle(fontSize: 16, color: Colors.black)),
-          SizedBox(height: 5),
-          Text(t, style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(.5))),
-          SizedBox(height: 10,),
-          Text(s2, style: TextStyle(fontSize: 16, color: Colors.black)),
-          SizedBox(height: 5),
-          Text(t2, style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(.5))),
 
         ],
       ),
+        ),
+      );
+  }
+  List<Issue> listOfIssueToShow = [];
+  void getIssueList(int rentableId) {
+    listOfIssueToShow = propertyModel.allIssues;
+    if (rentableId != 0) {
+      listOfIssueToShow = listOfIssueToShow.where((element) => element.rentableId ==
+          rentableId).toList();
+    }
+    if ("Open" == issueStatus) {
+      listOfIssueToShow = listOfIssueToShow.where((element) => element.status != PageStatics.COMPLETE_FOR_ISSUETYPEVALUE).toList();
+
+    }
+
+  }
+
+
+
+
+  String? rentalNameKey;
+  Widget allIssue() {
+
+    setState(() {
+      getIssueList(rentalVal[rentalNameKey] ?? 0 );
+      listOfIssueToShow;
+    });
+    return Consumer<PropertyModel>(builder: (context, props, child) {
+
+
+    String searchValue;
+    return Container(
+      // elevation: 6,
+      //margin: EdgeInsets.all(4.0),
+      //appBar: new PreferredSize(preferredSize: tab.preferredSize,
+        child:
+        //print("length of all props ${props.allCards.length}");
+        Column(children: [
+          SizedBox(height: 15,),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Filter", style: TextStyle
+              (fontSize: 16),),
+            SizedBox(width: 5,),
+            SizedBox(
+                height: 55,
+                width: 280,
+                child: DropdownButtonFormField<String>(
+                  value: rentalNameKey,
+
+                  elevation: 25,
+                  isExpanded: true,
+                  //style: const TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                    contentPadding: EdgeInsets.all(10.0),
+
+                    hintText: 'Select Rental Unit',
+                    //filled: true,
+                    //fillColor: const Color(0xfff1f1f1),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.grey),
+                    ),),
+
+                  items: rentalVal.keys.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      alignment: AlignmentDirectional.center,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  hint: const Text(
+                    "Select Issue with Rental*",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+
+                        fontWeight: FontWeight.w600),
+                  ),
+                  onChanged: (String? value) {
+                    setState(() {
+                      rentalNameKey = value!;
+                      int val = rentalVal[rentalNameKey]?? 0;
+                      getIssueList(val );
+                    });
+                  },
+                )),
+          ],
+        ),
+          SizedBox(height: 15,),
+          Expanded(
+
+              child: ListView.builder(
+                  itemCount: listOfIssueToShow.length,
+                  
+                  itemBuilder: (context, index) {
+                    var issue = listOfIssueToShow[index];
+                    var prop = propertyModel.getRentableModel(listOfIssueToShow[index].rentableId);
+                    
+                    String propertyName = prop.propName + ", " + prop.unitName;
+                    var result =
+                    props.allContractors.where((element) => element.id == issue.contractorId);
+                    Contractor contractor =
+                    (result.length > 0) ? result.first : Contractor.nullContractor();
+                    if (contractor == null) contractor = Contractor.nullContractor();
+                    return InkWell(
+                      child:
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Card(
+
+                            clipBehavior: Clip.antiAlias,
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                BorderRadius.all(Radius.circular(15.0))),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: Icon(Icons.home_repair_service_outlined),
+                                  title:  Text('$propertyName'),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children:[Text(
+                                      '${issue.title}' ,style: TextStyle(color: Colors.black.withOpacity(0.8)),),
+                                      Text(
+                                        'Contractor: ${contractor.firstName + " " + contractor.lastName}' ,style: TextStyle(color: Colors.black.withOpacity(0.8)),),
+                                    ],
+
+                                  ),
+                                  trailing: Column(children:[Text(DateFormat("MMM dd, yy").format(issue.dateOfIssue),style: TextStyle(color: Colors.black.withOpacity(0.8),fontSize: 14),
+                                  ),Text("\$${(issue.materialCost + issue.laborCost).toStringAsFixed(0)}",style: TextStyle(color: Colors.black.withOpacity(0.8), fontSize: 14),)]),
+                                  //isThreeLine: true,
+
+                                ),
+                                Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Padding(
+
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Text(
+                                      '${issue.description}',
+                                      style: TextStyle(color: Colors.black.withOpacity(0.6), ),
+                                    ),
+                                  ),
+                                ),
+                                getConditionalContainer(issue),
+
+
+
+                              ],
+                            ),
+                          ),
+                        ),
+
+                    );
+                  })),
+        ]));
+    });
+  }
+  List<Widget> getImages(Issue issue) {
+    return [
+      
+      
+      Card(
+        
+        margin: const EdgeInsets.only(right: 7, top: 0, bottom: 7),
+        elevation: 7,
+        child: FutureBuilder(
+          future: TransactionService.fetchImages(issue),
+          builder: (context, AsyncSnapshot<List<String>> snapshot) {
+            if (snapshot.hasData){
+              List<Widget> ws =[];
+              snapshot.data!.forEach((element) {
+                  ws.add(Image.network(element));
+                });
+            return Column(children: ws,);}
+
+
+
+            // Return your "Sin Foto" text here.
+           return Text("No image");
+          },
+        ))];
+  }
+  void initRentVal(PropertyModel propertyModel) {
+    rentalVal['All'] = 0;
+    propertyModel.allCards.forEach((element) {
+      rentalVal.addAll({element.propName + " " + element.unitName: element.id});
+    });
+
+  }
+
+  void setIssueStatus(int index) {
+    setState(() {
+      issueStatus = index == 0 ? "Open" : "All";
+    });
+  }
+
+ Widget getConditionalContainer(Issue issue)  {
+    String paidStatus = (issue.paidStatus == PageStatics.PAID)?"Mark Unpaid" : "Mark Paid";
+    List<String> imageUrls = [];
+    TransactionService.fetchImages(issue).then((value) => imageUrls = value);
+    final children = [
+
+    ButtonBar(
+      alignment: MainAxisAlignment.spaceEvenly,
+
+      children: [
+        (issueStatus == "Open")? TextButton(
+
+
+          onPressed: () {
+            // Perform some action
+          },
+          child: const Text('  Mark\nComplete', style: TextStyle(color:  Color(0xFF6200EE),)),
+        ) : Container(),
+        FittedBox(
+          child: TextButton(
+          
+          
+            onPressed: () {
+          
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          NewIssue(newIssue: issue,insertMode:false
+          
+                            //insertMode: true,
+                            //UploadingImageToFirebaseStorage()
+          
+                          )));
+            },
+            child: const Text('Edit', style: TextStyle(color:  Color(0xFF6200EE),)),
+          ),
+        ),
+        (issueStatus == "Open")? TextButton(
+          //textColor: const Color(0xFF6200EE),
+          onPressed: () {
+            // Perform some action
+          },
+          child: Text(paidStatus, style: TextStyle(color:  Color(0xFF6200EE),)),
+        ) : Container(),
+        TextButton(
+          //textColor: const Color(0xFF6200EE),
+          onPressed: () {
+
+            TransactionService.deleteImage(issue);
+            propertyModel.removeIssue(issue);
+            // Perform some action
+          },
+          child: Text("Delete", style: TextStyle(color:  Color(0xFF6200EE),)),
+        ),
+
+      ],
+    ) ,
+
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.all(1.0),
+          child: ExpansionTile(
+            // leading: SizedBox(width: 30,),
+            backgroundColor: Colors.white,
+            title: Text('Show Images', style: TextStyle(color:  Color(0xFF6200EE),)),
+            //subtitle: ,
+            trailing: SizedBox(width: 1,),
+            children: getImages(issue),
+
+
+          ),
+        ),
+      )
+    ];
+    return SingleChildScrollView(
+      child: Column(
+        children: children,
+      ),
     );
   }
 
-  RelativeRect _getRelativeRect(GlobalKey key){
-    return RelativeRect.fromSize(
-        _getWidgetGlobalRect(key), const Size(200, 200));
-  }
-
-  Rect _getWidgetGlobalRect(GlobalKey key) {
-    final RenderBox renderBox =
-    key.currentContext!.findRenderObject() as RenderBox;
-    var offset = renderBox.localToGlobal(Offset.zero);
-    debugPrint('Widget position: ${offset.dx} ${offset.dy}');
-    return Rect.fromLTWH(offset.dx / 3.1, offset.dy * 1.05,
-        renderBox.size.width, renderBox.size.height);
-  }
 }
-
-
