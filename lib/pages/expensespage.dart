@@ -26,108 +26,40 @@ class AllExpensesPage extends StatefulWidget {
 
 class _AllExpensesPage extends State<AllExpensesPage> {
   late PropertyModel propertyModel;
-
+  List<Expense>currentMonthExpenses=[];
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+
   }
 
   @override
   void didChangeDependencies() {
     // TODO: implement didChangeDependencies
-    super.didChangeDependencies();
+   // super.didChangeDependencies();
     propertyModel = context.watch<PropertyModel>();
-  }
-
-  @override
-  Widget buildOld(BuildContext context) {
     DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(
         propertyModel.currentMonth);
-    List<Expense> currentMonthExpenses = propertyModel.allExpenses.where((
-        element) => element.dateOfExpense.isAfter(dt)).toList();
-    List<PropertyTransaction> ytdIncomeList = [];
-
-
-    List<Issue> ytdExpensesList = [];
-
-    double ytdIncome = ytdIncomeList.fold(
-        0.0, (previousValue, element) => previousValue + element.amount);
-    double ytdExpense = currentMonthExpenses.fold(
-        0.0, (previousValue, element) => previousValue + element.amount);
-    double net = ytdIncome - ytdExpense;
-
-
-    final oCcy = NumberFormat("#,##0", "en_US");
-    return Consumer<PropertyModel>(builder: (context, props, child) {
-      //print("length of all props ${props.allCards.length}");
-
-      return Container(
-        child: Column(
-          children: [
-            Card(child: Text("Total ${ytdExpense}")),
-            ListView.builder(
-                itemCount: props.allProps.length,
-                itemBuilder: (context, index) {
-                  return InkWell(
-                    onTap: () {
-                      print("tapped");
-                    },
-                    child: Column(
-                        children: [
-
-                          buildTotalCard(props.allProps[index], context,
-                              currentMonthExpenses)
-                        ]),
-                  );
-                }),
-          ],
-        ),
-      );
-    });
-  }
-
-  Card buildTotalCard(Property property, BuildContext context,
-      List<Expense> currentExpenses) {
-    print('property ${property.id}');
-
-
-    List<Expense> thisPropExpenses = currentExpenses.where((element) =>
-    element.propertyId == property.id).toList();
-    double totalExpenses = thisPropExpenses.fold(
-        0.0, (previousValue, element) => previousValue + element.amount);
-    return Card(
-        color: Colors.grey,
-        margin: EdgeInsets.all(2.0),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(1.0))),
-        elevation: 8,
-
-        child: Column(
-            children: [
-              Text("${property.name } ${totalExpenses}")
-            ]
-        ));
+    DateTime nextMonth = DateTime(dt.year, dt.month+1, dt.day);
+    currentMonthExpenses = propertyModel.allExpenses.where((
+        element) => element.dateOfExpense.isAfter(dt) && element.dateOfExpense.isBefore(nextMonth)).toList();
+    print("number of expense for ${dt} is : ${currentMonthExpenses.length}");
   }
 
 
   Widget _buildTotalCard(PropertyModel props) {
-    int totalPaidInFull = 0;
-    double totalExpected = 0.0;
-    double received = 0.0;
-    double balance = 0.0;
     NumberFormat numberFormat = NumberFormat("#,##0", "en_US");
+    double totalExpenses = 0.0;
+    props.allProps.forEach((property) {
+      List<Expense> thisPropExpenses = getExpensesForProp(property);
+      totalExpenses = thisPropExpenses.fold(
+          0.0, (previousValue, expense) => previousValue + expense.amount);
 
 
-    for (int i = 0; i < props.txMap.length; i++) {
-      if (props.txMap[i].balance == 0) ++totalPaidInFull;
-      totalExpected =
-          totalExpected + props.txMap[i].rent + props.txMap[i].totalCredit;
-      received = received + props.txMap[i].totalDebit;
-      if (props.txMap[i].balance < 0)
-        balance = balance + props.txMap[i].balance;
-    }
-    //balance = totalExpected - received;
+    });
+
+
     return Padding(
       padding: const EdgeInsets.all(2.0),
       child: Column(
@@ -136,38 +68,12 @@ class _AllExpensesPage extends State<AllExpensesPage> {
         children: <Widget>[
           Container(
 
-              height: 150,
+              height: 80,
               width: MediaQuery
                   .of(context)
                   .size
                   .width - 5,
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildUserStatsItem(
-                        "${props.txMap.length}",
-                        "Unit Rented",
-                        "\$${(numberFormat.format(totalExpected))}",
-                        "Expected",
-                        Colors.blue[200]!,
-                        0,
-                        props),
-                    _buildUserStatsItem(
-                        "${totalPaidInFull}",
-                        "Paid Full",
-                        "\$${(numberFormat.format(received))}",
-                        "Received",
-                        Colors.green[200]!,
-                        1,
-                        props),
-                    _buildUserStatsItem(
-                        "${props.txMap.length - totalPaidInFull}",
-                        "Partially Paid",
-                        "\$${(numberFormat.format(balance.abs()))}",
-                        "Balance",
-                        Colors.purple[200]!,
-                        2,
-                        props),
-                  ])
+              child: Center(child:Text(numberFormat.format(totalExpenses), style: TextStyle(fontSize: 16, color: Colors.red))),
           ),
 
         ],
@@ -175,46 +81,8 @@ class _AllExpensesPage extends State<AllExpensesPage> {
     );
   }
 
-  _buildUserStatsItem(String s, String t, String s2, String t2, Color c,
-      int index, PropertyModel prop) {
-    return InkWell(
-      onTap: () {},
-      child: Container(
-        decoration: BoxDecoration(
-          color: c,
-          border: Border.all(color: Colors.blue, width: 3),
-        ),
-        height: 130,
-        width: (MediaQuery
-            .of(context)
-            .size
-            .width / 3) - 15,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            Text(s, style: TextStyle(fontSize: 16, color: Colors.black)),
-            SizedBox(height: 5),
-            Text(t, style: TextStyle(
-                fontSize: 14, color: Colors.black.withOpacity(.7))),
-            SizedBox(height: 10,),
-            Text(s2, style: TextStyle(fontSize: 16, color: Colors.black)),
-            SizedBox(height: 5),
-            Text(t2, style: TextStyle(
-                fontSize: 14, color: Colors.black.withOpacity(.7))),
-
-          ],
-        ),
-      ),
-    );
-  }
 
   List<Expense> getExpensesForProp(Property prop) {
-    DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(
-        propertyModel.currentMonth);
-    DateTime nextMonth = DateTime(dt.year, dt.month+1, dt.day);
-    List<Expense> currentMonthExpenses = propertyModel.allExpenses.where((
-        element) => element.dateOfExpense.isAfter(dt) && element.dateOfExpense.isBefore(nextMonth)).toList();
     List<Expense> thisPropExpenses = currentMonthExpenses.where((element) =>
     element.propertyId == prop.id).toList();
     return thisPropExpenses;
@@ -234,11 +102,11 @@ class _AllExpensesPage extends State<AllExpensesPage> {
               Column(
                   children: [
                     Card(
-                      color: Colors.grey,
+                      color: Colors.blueGrey,
                       margin: EdgeInsets.all(2.0),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.all(Radius.circular(1.0))),
-                      elevation: 8,
+                      elevation: 4,
 
                       child: _buildTotalCard(props),
                     ),

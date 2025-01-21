@@ -404,7 +404,7 @@ class _NewIssueState extends State<NewIssue> {
           content: Column(
 
             children:  [
-              Row(
+/*              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                   children: [SizedBox(
                   height: 56,
@@ -424,7 +424,51 @@ class _NewIssueState extends State<NewIssue> {
 
                           )));
                 }, child: Icon(Icons.add_circle)),
-              ]),
+              ]),*/
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                      SizedBox(
+                        width: 300,
+                        child: DropdownButtonFormField<Contractor>(
+                        value: contractor,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Contractor',
+                          border: OutlineInputBorder(),
+                          icon: Icon(Icons.person_outline_rounded),
+                        ),
+                        onChanged: (Contractor? newValue) {
+                          setState(() {
+                            contractor = newValue!;
+
+                          });
+                        },
+
+                        items: propertyModel.allContractors
+                            .map<DropdownMenuItem<Contractor>>((Contractor value) {
+                          return DropdownMenuItem<Contractor>(
+                            value: value,
+                            child: Text(value.firstName + " " + value.lastName),
+                          );
+                        }).toList(),
+                                            ),
+                      ),
+
+                  FloatingActionButton(onPressed:() {print('pressed');
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              ContractorPage(
+
+                                //insertMode: true,
+                                //UploadingImageToFirebaseStorage()
+
+                              )));
+                  }, child: Icon(Icons.add_circle)),
+                ],
+              ),
               SizedBox(
                 height: 100,
               child: Card(

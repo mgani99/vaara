@@ -30,6 +30,7 @@ class RepairPageHome extends State<RepairPage> {
     propertyModel = context.watch<PropertyModel>();
     initRentVal(propertyModel);
     getIssueList(0);//initialize w/ all first;
+    super.didChangeDependencies();
   }
 
   @override

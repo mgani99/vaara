@@ -97,7 +97,7 @@ class _ContractorPageState extends State<ContractorPage> {
                     SizedBox(
                         height: 56,
                         width: 330,
-                        child: StandardSearchBar(
+                        child: TextFormField(
                           )),
                     SizedBox(
                       height: 15,
