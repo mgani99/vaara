@@ -3,6 +3,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +15,7 @@ import 'package:my_app/pages/addexpense.dart';
 import 'package:my_app/pages/propertydetailspage.dart';
 import 'package:my_app/pages/transactionpage.dart';
 import 'package:provider/provider.dart';
+import 'newissue.dart';
 import 'newproperty.dart';
 import 'dart:ui' as UI;
 
@@ -27,6 +30,7 @@ class AllExpensesPage extends StatefulWidget {
 class _AllExpensesPage extends State<AllExpensesPage> {
   late PropertyModel propertyModel;
   List<Expense>currentMonthExpenses=[];
+  List<Property> propWithExpenses = [];
   @override
   void initState() {
     // TODO: implement initState
@@ -49,13 +53,17 @@ class _AllExpensesPage extends State<AllExpensesPage> {
 
 
   Widget _buildTotalCard(PropertyModel props) {
+    propWithExpenses =[];
     NumberFormat numberFormat = NumberFormat("#,##0", "en_US");
     double totalExpenses = 0.0;
     props.allProps.forEach((property) {
       List<Expense> thisPropExpenses = getExpensesForProp(property);
-      totalExpenses = thisPropExpenses.fold(
+      double expense = thisPropExpenses.fold(
           0.0, (previousValue, expense) => previousValue + expense.amount);
-
+      if (expense > 0) {
+        totalExpenses = totalExpenses + expense;
+        this.propWithExpenses.add(property);
+      }
 
     });
 
@@ -69,11 +77,11 @@ class _AllExpensesPage extends State<AllExpensesPage> {
           Container(
 
               height: 80,
-              width: MediaQuery
-                  .of(context)
-                  .size
-                  .width - 5,
-              child: Center(child:Text(numberFormat.format(totalExpenses), style: TextStyle(fontSize: 16, color: Colors.red))),
+              //width: MediaQuery
+               //   .of(context)
+              //    .size
+               //   .width - 5,
+              child: Center(child:Text("\$" + numberFormat.format(totalExpenses), style: TextStyle(fontSize: 24, color: Colors.red))),
           ),
 
         ],
@@ -114,7 +122,7 @@ class _AllExpensesPage extends State<AllExpensesPage> {
                         child:
                         ListView.builder(
                           // physics: NeverScrollableScrollPhysics(),
-                            itemCount: props.allProps.length,
+                            itemCount: propWithExpenses.length,
                             itemBuilder: (context, index) {
                               return InkWell(
 
@@ -133,10 +141,10 @@ class _AllExpensesPage extends State<AllExpensesPage> {
                                             padding: const EdgeInsets.all(4.0),
                                             child: ExpansionTile(
                                               backgroundColor: Colors.white,
-                                              title: _buildTitle((getExpensesForProp(props.allProps[index])), props.allProps[index]),
+                                              title: _buildTitle((getExpensesForProp(propWithExpenses[index])), propWithExpenses[index]),
                                               //subtitle: ,
                                               //trailing: SizedBox(width: 1,),
-                                              children: getTransactionList((getExpensesForProp(props.allProps[index])), props
+                                              children: getTransactionList((getExpensesForProp(propWithExpenses[index])), props
                                               ),
                                             ),
                                           ),
@@ -178,7 +186,13 @@ class _AllExpensesPage extends State<AllExpensesPage> {
       child: InkWell(
         onTap: () {Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) =>  AddExpenseScreen(expense: expense,editMode: true)));},
+            MaterialPageRoute(builder: (context) =>  expense.category != "Repair" ?  AddExpenseScreen(expense: expense,editMode: true):
+            NewIssue(newIssue: propertyModel.getIssue(expense.issueId),insertMode:false
+
+              //insertMode: true,
+              //UploadingImageToFirebaseStorage()
+
+            )));},
         child: Padding(
           padding: const EdgeInsets.all(6.0),
           child: Column(
@@ -227,6 +241,7 @@ class _AllExpensesPage extends State<AllExpensesPage> {
     // Tenant tenant = props.getTenantForTxSummary(tx);
     double totalExpenses = expenses.fold(
         0.0, (previousValue, element) => previousValue + element.amount);
+    if (totalExpenses > 0)
     return Container(
 
       //width: MediaQuery.of(context).size.width * 0.95,
@@ -256,6 +271,7 @@ class _AllExpensesPage extends State<AllExpensesPage> {
 
 
     );
+    return Container();
 
 
   }

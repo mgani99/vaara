@@ -215,6 +215,12 @@ class PropertyModel extends ChangeNotifier {
     // you change the model.
     notifyListeners();
   }
+  Expense getExpenseForIssue(int issueId) {
+    Expense retVal = Expense.nullExpense();
+    if (issueId == 0) return retVal;
+    retVal = (allExpenses.where((element) => element.issueId == issueId)).first;
+    return retVal;
+  }
 
   void rollDate() {
     DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(currentMonth);
@@ -345,7 +351,12 @@ class PropertyModel extends ChangeNotifier {
     }
     return retVal;
   }
-
+  Issue getIssue(int issueId) {
+    Issue retVal = Issue.nullIssue();
+    Issue issue = (allIssues.where((element) => element.id == issueId)).first;
+    if (issue!= null) retVal = issue;
+    return retVal;
+  }
   LeaseDetails getLeaseDetail(int currentLeaseId) {
     LeaseDetails retVal = LeaseDetails.nullLeaseDetails();
     retVal.id = currentLeaseId;
@@ -360,9 +371,11 @@ class PropertyModel extends ChangeNotifier {
     RentableModel retVal = RentableModel.nullCardViewModel();
     RentableModel rentable =
         (allCards.where((element) => element.id == rentableModelId)).first;
+
     if (rentable != null) retVal = rentable;
     return retVal;
   }
+
 
   void addTransactionSummary(TransactionSummary tx,String currMonth) async{
 
@@ -816,6 +829,7 @@ class Expense implements Comparable<Expense> {
     return retVal;
 
   }
+
 }
 
 
@@ -1022,7 +1036,7 @@ class Unit implements Comparable<Unit> {
   int livingSpace= 0;
 
 
-  int unitTypeId=4; //main house is always 0, apartment by default 1, garage 2, parking 3, all other 4;
+  int unitTypeId=4; //main house isclass Unitclass Unit always 0, apartment by default 1, garage 2, parking 3, all other 4;
   String address="";
   double rent = 0.0;
   int propId=0;

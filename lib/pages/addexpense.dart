@@ -109,8 +109,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     (_category == "Repair" && getAllIssues().length > 0)? showIssue = true : showIssue = false;
                   });
                 },
-                items: <String>["Repair", "Tax", "Property Insurance", "Sewer",
-                  "Water", "Electric", "Telephone", "Internet", "Pest Control", "Vacancy", "Management", "Supplies"
+                items: <String>["Repair", "Tax", "Interest","Property Insurance", "Sewer", "Gas-Heat", "Gas",
+                  "Water", "Electric", "Telephone", "Internet", "Pest Control", "Vacancy", "Management", "Supplies",
                       "Bank Fee", "Legal", "Violation", "Landscape", "Supplies", "Administrative"]
                     .map<DropdownMenuItem<String>>((String value) {
                   return DropdownMenuItem<String>(
@@ -145,18 +145,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               // Switch for Income/Expense selection
               SwitchListTile(
-                title: const Text('Income'),
+                title: const Text('Auto Calculate'),
                 value: _isIncome,
                 onChanged: (bool value) {
                   setState(() {
                     _isIncome = value;
                   });
                 },
-                secondary: Icon(
-                  _isIncome ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: _isIncome ? Colors.green : Colors.red,
-                ),
+                //secondary: Icon(
+                 // _isIncome ? Icons.arrow_upward : Icons.arrow_downward,
+                 // color: _isIncome ? Colors.green : Colors.red,
+                //),
               ),
+              if (_isIncome)            //Your popup widget
+                Container(width: 200, height: 200, decoration: const BoxDecoration(color: Colors.green), child: const Text("popup"),),
               const SizedBox(height: 16),
 
               // Date picker for transaction date

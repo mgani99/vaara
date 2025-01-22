@@ -1,6 +1,7 @@
 
 
 import 'dart:io';
+import 'dart:math';
 
 
 import 'package:flutter/material.dart';
@@ -168,7 +169,13 @@ class _NewIssueState extends State<NewIssue> {
       //newIssue.imageUrls = urls;
     }
 
+
     propertyModel.addIssue(newIssue);
+    RentableModel rentable = propertyModel.getRentableModel(newIssue.rentableId);
+    Expense expense = Expense(category: "Repair", unitId: rentable.unitId,
+        propertyId: rentable.propId, amount: newIssue.laborCost + newIssue.materialCost, dateOfExpense: newIssue.dateOfIssue);
+    expense.issueId = newIssue.id;
+    propertyModel.addExpense(expense);
     Navigator.pop(context);
   }
 

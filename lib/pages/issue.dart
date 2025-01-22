@@ -317,6 +317,7 @@ class IssuePageHome extends State<IssuePage> {
 
             TransactionService.deleteImage(issue);
             propertyModel.removeIssue(issue);
+            propertyModel.removeExpense(propertyModel.getExpenseForIssue(issue.id));
             // Perform some action
           },
           child: Text("Delete", style: TextStyle(color:  Color(0xFF6200EE),)),
