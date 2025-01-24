@@ -29,7 +29,7 @@ class PropertyModel extends ChangeNotifier {
   List<Issue> _allIssues = [];
   List<Contractor> _allContractors = [];
   List<Expense> _allExpenses = [];
-
+  List<AutoCalculator> _allAutoCalculator=[];
   final database = FirebaseDatabase.instance.ref();
 
   /// List of items in the cart.
@@ -40,6 +40,8 @@ class PropertyModel extends ChangeNotifier {
   List<Issue> get allIssues => _allIssues;
   List<Contractor> get allContractors => _allContractors;
   List<Expense> get allExpenses => _allExpenses;
+  List<AutoCalculator> get allAutoCalculator => _allAutoCalculator;
+
   PropertyModel(){
     getPropertyStream();
   }
@@ -187,6 +189,7 @@ class PropertyModel extends ChangeNotifier {
 
     _allTenants = await DatabaseService.getTenants();
     _allLeaseDetails = await DatabaseService.getLeaseDetails();
+    _allAutoCalculator = await DatabaseService.getAuoCalculators();
     notifyListeners();
   }
 
@@ -599,9 +602,47 @@ class PropertyModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addAutoCalculator(AutoCalculator ac) async{
+    print('saving ac ${ac}');
+    int index = allAutoCalculator.indexOf(ac);
+    if (index != -1) {
+      allAutoCalculator.remove(ac);
+      print('removing $ac');
+    }
+    allAutoCalculator.add(ac);
+    final dbPropertyReference = database.child(DatabaseService.AC_REF);
+    //String formattedDt = DateFormatc(PropertyModel.PAYMENT_DATE_FORMAT).format(newIssue.dateOfIssue);
+    try {
+      await dbPropertyReference.update({'ac-id-${ac.id}': ac.toJson()});
+
+
+    }
+    catch(e) {
+      print('you Error saving ac ot an error $e' );
+    }
+
+    // depend on it.
+    notifyListeners();
+  }
+
+
   RentableModel getRentableModelForUnit(int unitId) {
     return _allRentables.where((element) => element.unitId == unitId).isNotEmpty?
       _allRentables.where((element) => element.unitId == unitId).single : RentableModel.nullCardViewModel();
+
+  }
+
+  AutoCalculator getAutoCalculator(int propertyId, String category) {
+    List<AutoCalculator> acs = [];
+    allAutoCalculator.forEach((element) {
+       if (element.propertyId == propertyId && element.calculatorType == category) {
+
+         acs.add(element);
+       }
+    } );
+    if (acs.isNotEmpty)
+      return acs[0];
+    return AutoCalculator.nullAC();
 
   }
 
@@ -831,6 +872,84 @@ class Expense implements Comparable<Expense> {
   }
 
 }
+
+
+@immutable
+class AutoCalculator implements Comparable<AutoCalculator> {
+
+  int id= 0;
+  String calculatorType = "";
+  int propertyId = 0;
+  bool activeFlag = false;
+  int frequency = 1; //1 monthly, 3 quarterly, 6 semi, 12 yearly
+  DateTime dateOfEvent = DateTime.now();
+  Map<dynamic, dynamic> mapVal = {};
+
+
+  AutoCalculator({
+
+    required this.calculatorType,
+    required this.propertyId,
+    required this.activeFlag,
+    required this.frequency,
+    required this.mapVal,
+    required this.dateOfEvent
+  }) {
+    if (id == 0 || id == 1) {
+      id = calculatorType.hashCode + propertyId.hashCode + frequency.hashCode;
+    }
+
+  }
+  @override
+  bool operator ==(Object other) => other is AutoCalculator && other.id == id ;
+
+  @override
+  int compareTo(AutoCalculator other) {
+
+    return (calculatorType).compareTo(other.calculatorType) ;
+
+  }
+
+  //static final  allCats = ;
+
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    String dt = DateFormat("MM/dd/yy hh:mm:ss").format(dateOfEvent);
+    data['id'] = this.id;
+    data['calculatorType'] = this.calculatorType;
+    data['propertyId'] = this.propertyId;
+    data['activeFlag'] = this.activeFlag;
+    data['frequency'] = this.frequency;
+    data['dateOfEvent'] = dt;
+    data['mapVal'] = this.mapVal;
+
+
+    return data;
+  }
+
+    factory AutoCalculator.fromMap(Map<dynamic,dynamic> map) {
+
+    AutoCalculator retVal = AutoCalculator(calculatorType: map['calculatorType'] ?? "",
+      propertyId: map['propertyId']?? 0,
+      activeFlag: map['activeFlag']?? false,
+      dateOfEvent: DateFormat("MM/dd/yy hh:mm:ss").parse(map['dateOfEvent'] ?? DateTime.now()),
+      frequency: map['frequency'] ?? 0,
+      mapVal: map['mapVal'] ?? {}
+    );
+    retVal.id = map['id']??0;
+    return retVal;
+
+  }
+
+  static AutoCalculator nullAC() {return AutoCalculator(calculatorType: "",
+      propertyId: 0, activeFlag: false, frequency: 0, mapVal: {}, dateOfEvent: DateTime.now());}
+
+}
+
+
+
+
 
 
 @immutable

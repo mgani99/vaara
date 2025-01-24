@@ -110,7 +110,7 @@ class _AllExpensesPage extends State<AllExpensesPage> {
               Column(
                   children: [
                     Card(
-                      color: Colors.blueGrey,
+                      color: Colors.white10,
                       margin: EdgeInsets.all(2.0),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.all(Radius.circular(1.0))),

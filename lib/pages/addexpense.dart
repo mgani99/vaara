@@ -18,7 +18,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>(); // Form key for validation
   String _category = 'Repair'; // Default category
   double _amount = 0.0;
-  bool _isIncome = false;
+  double _rate = 0.0;
+  double _balance = 0.0;
+  double _payment = 0.0;
+  bool calculatedField = false;
   DateTime _selectedDate = DateTime.now(); // Default date as current date
   late PropertyModel propertyModel;
   Property? propertyName;
@@ -33,6 +36,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         this.propertyName = propertyModel.getProperty(this.widget.expense.propertyId);
         this._category = this.widget.expense.category;
         //editMode = true;
+        AutoCalculator ac  = propertyModel.getAutoCalculator(this.widget.expense.propertyId, this._category);
+        if (ac != AutoCalculator.nullAC()) {
+          calculatedField = true;
+          balanceController.text = ac.mapVal['Balance'];
+          rateController.text = ac.mapVal['Rate'];
+          paymentController.text = ac.mapVal['PaymentAmt'];
+        }
 
       });
 
@@ -45,10 +55,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool showIssue = false;
 
   final amountController = TextEditingController();
+  final balanceController = TextEditingController();
+  final rateController = TextEditingController();
+  final paymentController = TextEditingController();
+
 
   @override
   void dispose() {
     amountController.dispose();
+    rateController.dispose();
+    balanceController.dispose();
+    paymentController.dispose();
     super.dispose();
   }
   @override
@@ -146,10 +163,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               // Switch for Income/Expense selection
               SwitchListTile(
                 title: const Text('Auto Calculate'),
-                value: _isIncome,
+                value: calculatedField,
                 onChanged: (bool value) {
                   setState(() {
-                    _isIncome = value;
+                    calculatedField = value;
                   });
                 },
                 //secondary: Icon(
@@ -157,8 +174,80 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                  // color: _isIncome ? Colors.green : Colors.red,
                 //),
               ),
-              if (_isIncome)            //Your popup widget
-                Container(width: 200, height: 200, decoration: const BoxDecoration(color: Colors.green), child: const Text("popup"),),
+              if (calculatedField)            //Your popup widget
+                Container(width: 200, height: 255, decoration: const BoxDecoration(color: Colors.white10), child: Column(
+                  children: [
+                    SizedBox(height: 15,),
+                      SizedBox(
+                        width: 300,
+                        height: 50,
+                        child: TextFormField(
+                        decoration: const InputDecoration(
+                        labelText: 'Balance',
+                          border: OutlineInputBorder(),
+                          icon: Icon(Icons.attach_money),
+                        ),
+                          keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an amount'; // Validate amount
+                              }
+                              return null;
+                            },
+                          onSaved: (value) => _balance = double.parse(value!),
+                          controller: balanceController),
+                      ),
+                    SizedBox(height: 15,),
+                    SizedBox(
+                      width: 300,
+                      height: 50,
+                      child: TextFormField(
+                          decoration: const InputDecoration(
+                            labelText: 'Rate',
+                            border: OutlineInputBorder(),
+                            icon: Icon(Icons.percent),
+
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a rate%'; // Validate amount
+                            }
+                            return null;
+                          },
+                          onSaved: (value) => _rate = double.parse(value!),
+                          controller: rateController),
+                    ),
+                    SizedBox(height: 15,),
+                    SizedBox(
+                      width: 300,
+                      height: 50,
+                      child: TextFormField(
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Amount',
+                            border: OutlineInputBorder(),
+                            icon: Icon(Icons.attach_money),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter an amount'; // Validate amount
+                            }
+                            return null;
+                          },
+                          onSaved: (value) => _payment = double.parse(value!),
+                          controller: paymentController),
+                    ),
+                  SizedBox(height: 8,),
+                  ElevatedButton.icon(onPressed: () { setState(() {amountController.text = (double.parse(balanceController.text) * double.parse(rateController.text)*.01/12).toString();
+
+                  }); },
+                    icon: const Icon(Icons.calculate),
+                    label: const Text('Calculate'),
+
+                  ),
+                  ],
+                ),),
               const SizedBox(height: 16),
 
               // Date picker for transaction date
@@ -181,17 +270,26 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     final expense = Expense(
                       category: _category,
                       amount: _amount,
-                      unitId: propUnit!.id,
+                      unitId: propUnit == null? 0 : propUnit!.id,
                       propertyId: propertyName!.id,
                       dateOfExpense: _selectedDate,
                     );
                     if (_category == "Repair") expense.issueId = issue!.id;
                     //Hive.box('transactions').add(expense);
                     propertyModel.addExpense(expense);
+                    if (calculatedField) {
+                      Map<String, dynamic> acMap = {};
+                      DateTime today = DateTime.now();
+                      acMap['Balance'] = balanceController.text;
+                      acMap['Rate'] = rateController.text;
+                      acMap['PaymentAmt'] = paymentController.text;
+                      propertyModel.addAutoCalculator(AutoCalculator(calculatorType: "Interest", propertyId: propertyName!.id,dateOfEvent: DateTime(today.year, today.month, 1),
+                          activeFlag: true, frequency: 1, mapVal: acMap));
+                    }
                     // Reset form after submission
                     _category = 'Repair';
                     _amount = 0.0;
-                    _isIncome = false;
+                    calculatedField = false;
                     _selectedDate = DateTime.now();
                     this.widget.editMode = false;
                     ScaffoldSnackbar.of(context).show('Expense updated');
@@ -215,7 +313,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ScaffoldSnackbar.of(context).show('Expense deleted');
                       setState(() { _category = 'Repair';
                       _amount = 0.0;
-                      _isIncome = false;
+                      calculatedField = false;
                       _selectedDate = DateTime.now();
                       this.widget.editMode = false;
                       this.widget.expense = Expense.nullExpense();});

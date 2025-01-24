@@ -17,6 +17,8 @@ class DatabaseService {
 
   static const EXPENSE_REF = "Reapp/expenses";
 
+  static String AC_REF = "Reapp/autocalculator";
+
   static Future<List<Property>> getProperties() async {
     final List<Property> retVal = [];
     final snapshot = await FirebaseDatabase.instance.ref(DatabaseService.PROPERTY_REF).get();
@@ -177,6 +179,24 @@ class DatabaseService {
     map.forEach((key, value) {
       final expense = Expense.fromMap(value);
       retVal.add(expense);
+    });
+
+    return retVal;
+  }
+
+
+
+  static Future<List<AutoCalculator>> getAuoCalculators() async {
+    final List<AutoCalculator> retVal = [];
+
+
+    final snapshot = await FirebaseDatabase.instance.ref(
+        DatabaseService.AC_REF).get();
+    if (snapshot.value == null) return [];
+    final map = snapshot!.value as Map<dynamic, dynamic>;
+    map.forEach((key, value) {
+      final ac = AutoCalculator.fromMap(value);
+      retVal.add(ac);
     });
 
     return retVal;
