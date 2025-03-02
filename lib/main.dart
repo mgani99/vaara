@@ -20,11 +20,13 @@ import 'package:my_app/pages/login.dart';
 import 'package:my_app/pages/newissue.dart';
 import 'package:my_app/pages/newproperty.dart';
 import 'package:my_app/pages/rentpayment.dart';
+import 'package:my_app/services/TransactionService.dart';
 import 'package:provider/provider.dart';
-import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import 'firebase_options.dart';
 
 
 
@@ -40,7 +42,6 @@ class MyApp extends StatelessWidget {
   String currentMonth = "";
   @override
   void initState() {
-
 
   }
 
@@ -268,7 +269,7 @@ class _MyApp extends State<MyHomePage> {
                   OutlinedButton(child: Text("Roll Month",style:  TextStyle(fontSize: 14,)),
 
 
-                    onPressed: (){props.rollDate();  props.setTxMap();
+                    onPressed: (){TransactionService.addAutoExpenses(props.allAutoCalculator, props);props.rollDate();  props.setTxMap();
                     setState(() {
                       props.currentMonth;
                     });},
@@ -340,13 +341,14 @@ class _MyApp extends State<MyHomePage> {
   }
   void showNextMonth(PropertyModel props) {
 
-    DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth);
+   DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth);
     dt = DateTime(dt.year, dt.month +1, dt.day);
     props.currentMonth = DateFormat(PageStatics.DATE_FORMAT).format(dt);
     props.setTxMap();
     setState(() {
       props.currentMonth;
     });
+
   }
   void showPrevMonth(PropertyModel props) {
     DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(props.currentMonth);

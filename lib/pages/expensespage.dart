@@ -46,6 +46,11 @@ class _AllExpensesPage extends State<AllExpensesPage> {
     DateTime dt = DateFormat(PageStatics.DATE_FORMAT).parse(
         propertyModel.currentMonth);
     DateTime nextMonth = DateTime(dt.year, dt.month+1, dt.day);
+    /*propertyModel.allExpenses.forEach((element) {
+      if (element.dateOfExpense.isAfter(DateTime(2025,03,01))) {
+        print(element.dateOfExpense);
+      }
+    });*/
     currentMonthExpenses = propertyModel.allExpenses.where((
         element) => element.dateOfExpense.isAfter(dt) && element.dateOfExpense.isBefore(nextMonth)).toList();
     print("number of expense for ${dt} is : ${currentMonthExpenses.length}");

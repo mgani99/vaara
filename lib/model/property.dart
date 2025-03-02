@@ -848,6 +848,10 @@ class Expense implements Comparable<Expense> {
     return data;
   }
 
+  @override
+  String toString() {
+    return this.toJson().toString();
+  }
   static Expense nullExpense() {
     var retVal =  Expense(category: "",
       unitId : 0,amount : 0.0,propertyId : 0,
@@ -940,6 +944,11 @@ class AutoCalculator implements Comparable<AutoCalculator> {
     retVal.id = map['id']??0;
     return retVal;
 
+  }
+
+  @override
+  String toString(){
+    return this.toJson().toString();
   }
 
   static AutoCalculator nullAC() {return AutoCalculator(calculatorType: "",

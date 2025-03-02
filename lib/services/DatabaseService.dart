@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:my_app/model/property.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 class DatabaseService {
@@ -22,6 +23,7 @@ class DatabaseService {
   static Future<List<Property>> getProperties() async {
     final List<Property> retVal = [];
     final snapshot = await FirebaseDatabase.instance.ref(DatabaseService.PROPERTY_REF).get();
+
     if (snapshot.value == null) return [];
     final map = snapshot.value as Map<dynamic, dynamic>;
     map.forEach((key, value) {

@@ -165,6 +165,26 @@ class TransactionService{
   }
 
 
+  static void addAutoExpenses(List<AutoCalculator> allAutoCalculators, PropertyModel propModel) {
+    List<AutoCalculator> updatedAC = [];
+    allAutoCalculators.forEach((element) {
+      if (element.activeFlag) {
+        final amount = element.mapVal['Balance'] * element.mapVal['Rate'] *0.01 /12;
+        final dateOfExpense = DateTime(element.dateOfEvent.year, element.dateOfEvent.month+element.frequency , element.dateOfEvent.day);
+        final newExpense = Expense(category: element.calculatorType, unitId: 0, propertyId: element.propertyId,
+            amount: amount, dateOfExpense: dateOfExpense);
+
+        element.mapVal['Balance'] = element.mapVal['Balance'] - (element.mapVal['PaymentAmt'] - amount);
+        element.dateOfEvent = dateOfExpense;
+        propModel.addExpense(newExpense);
+        updatedAC.add(element);
+      }
+    });
+    updatedAC.forEach((element) {
+      propModel.addAutoCalculator(element);
+    });
+  }
+
 
 
 }
