@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/home/view/home_dashboard.dart';
 import 'package:my_app/payments/view/payment_list_page.dart';
+import 'package:my_app/profile/view/profile_settings_page.dart';
 import 'package:my_app/property/view/property_dashboard.dart';
 import 'package:my_app/session/app_data.dart';
 import 'package:my_app/session/user_role.dart';
@@ -21,27 +22,26 @@ class NavBarController extends ChangeNotifier {
           const HomeDashboard(),
           const PropertyDashboard(),
           const PaymentListPage(),
-          const ProfileScreen(),
+          const ProfileSettingsPage(),
         ];
 
       case UserRole.tenant:
         return [
           const HomeDashboard(),
-          const PaymentDashboard(),
-          const ProfileScreen(),
+          const PaymentListPage(),
+          const ProfileSettingsPage(),
         ];
 
       case UserRole.contractor:
         return [
           const HomeDashboard(),
-          const RepairDashboard(),
-          const ProfileScreen(),
-        ];
+         // const RepairDashboard(),
+          ProfileSettingsPage()        ];
 
       default:
         return [
           const HomeDashboard(),
-          const ProfileScreen(),
+          const ProfileSettingsPage(),
         ];
     }
   }

@@ -89,4 +89,22 @@ class AuthService {
 
     session.setActiveRole(resolvedRole);
   }
+  Future<void> signOut() async {
+    try {
+      // Optional: remove FCM token from user record
+      // await removeFcmTokenFromUser();
+
+      // FirebaseAuth sign-out
+      await _auth.signOut();
+
+      // Optional: clear any local session cache
+      // session.clear();
+
+    } catch (e) {
+      // Log or handle error if needed
+      print("Error during signOut: $e");
+      rethrow;
+    }
+  }
 }
+

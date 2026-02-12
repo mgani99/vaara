@@ -1,16 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:my_app/property/model/balance_repository.dart';
-import 'package:my_app/property/model/contractor_repository.dart';
-import 'package:my_app/property/model/lease_details_repository.dart';
-import 'package:my_app/property/model/payment_repository.dart';
-import 'package:my_app/property/model/property_repository.dart';
-import 'package:my_app/property/model/tenant_repository.dart';
-import 'package:my_app/property/model/unit_repository.dart';
-import 'package:my_app/property/service/balanace_service.dart';
-import 'package:my_app/property/service/lease_details_service.dart';
-import 'package:my_app/property/service/payment_service.dart';
-import 'package:my_app/property/service/tenant_service.dart';
 import 'package:provider/provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -22,14 +11,10 @@ import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/route/router.dart' as router;
 import 'package:my_app/route/route_constants.dart';
 
-// ------------------------------------------------------------
 // SESSION
-// ------------------------------------------------------------
 import 'package:my_app/session/app_data.dart';
 
-// ------------------------------------------------------------
 // LOGIN + AUTH
-// ------------------------------------------------------------
 import 'package:my_app/login/controller/login_controller.dart';
 import 'package:my_app/login/controller/enroll_controller.dart';
 import 'package:my_app/login/controller/passord_reset_controller.dart';
@@ -40,17 +25,32 @@ import 'package:my_app/login/model/user_repository.dart';
 import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/login/model/invitation_repository.dart';
 
-// ------------------------------------------------------------
-// ONBOARDING SERVICES
-// ------------------------------------------------------------
+// PROFILE
+import 'package:my_app/profile/model/profile_repository.dart';
+import 'package:my_app/profile/service/profile_service.dart';
+import 'package:my_app/profile/controller/profile_controller.dart';
+
+// ONBOARDING
 import 'package:my_app/onboarding/service/address_lookup_service.dart';
 import 'package:my_app/onboarding/service/landlord_onboarding_service.dart';
 import 'package:my_app/onboarding/service/contractor_onboarding_service.dart';
 
-// ------------------------------------------------------------
-// PROPERTY + UNIT (NEW CLEAN ARCHITECTURE)
-// ------------------------------------------------------------
+// PROPERTY DOMAIN
+import 'package:my_app/property/model/property_repository.dart';
+import 'package:my_app/property/model/unit_repository.dart';
+import 'package:my_app/property/model/tenant_repository.dart';
+import 'package:my_app/property/model/lease_details_repository.dart';
+import 'package:my_app/property/model/payment_repository.dart';
+import 'package:my_app/property/model/balance_repository.dart';
+import 'package:my_app/property/model/contractor_repository.dart';
 
+import 'package:my_app/property/service/tenant_service.dart';
+import 'package:my_app/property/service/lease_details_service.dart';
+import 'package:my_app/property/service/payment_service.dart';
+import 'package:my_app/property/service/balanace_service.dart';
+
+// NAVBAR
+import 'home/controller/navbar_controller.dart';
 
 class MyCustomScrollBehavior extends MaterialScrollBehavior {
   @override
@@ -76,11 +76,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final db = FirebaseDatabase.instance.ref();
 
-    FlutterError.onError = (FlutterErrorDetails details) {
-      print("🔥 FlutterError: ${details.exception}");
-      print("🔥 Stack trace: ${details.stack}");
-    };
-
     return MultiProvider(
       providers: [
         // ------------------------------------------------------------
@@ -89,48 +84,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppSession()),
 
         // ------------------------------------------------------------
-        // ONBOARDING HELPERS
-        // ------------------------------------------------------------
-        Provider(create: (_) => AddressLookupService()),
-
-        // ------------------------------------------------------------
-        // CORE REPOSITORIES
+        // CORE REPOSITORIES (must come BEFORE services)
         // ------------------------------------------------------------
         Provider(create: (_) => UserRepository()),
         Provider(create: (_) => OrgUserRepository()),
         Provider(create: (_) => InvitationRepository()),
+        Provider(create: (_) => ContractorRepository()),
 
-        // NEW CLEAN ARCHITECTURE REPOS
-        Provider(create: (_) => PropertyRepository()),
-        Provider(create: (_) => UnitRepository()),
-
-
-        // ------------------------------------------------------------
-        // ROLE RESOLVER
-        // ------------------------------------------------------------
-// ------------------------------------------------------------
-// ROLE RESOLVER
-// ------------------------------------------------------------
-        Provider(
-          create: (_) => RoleResolver(),
-        ),
-
-        // ------------------------------------------------------------
-        // AUTH SERVICE
-        // ------------------------------------------------------------
-        Provider(
-          create: (context) => AuthService(
-            auth: FirebaseAuth.instance,
-            userRepo: context.read<UserRepository>(),
-            orgUserRepo: context.read<OrgUserRepository>(),
-            session: context.read<AppSession>(),
-            roleResolver: context.read<RoleResolver>(), contractorRepo: context.read<ContractorRepository>(),
-          ),
-        ),
-
-// ------------------------------------------------------------
-// DOMAIN REPOSITORIES
-// ------------------------------------------------------------
+        // PROPERTY REPOSITORIES
         Provider(create: (_) => PropertyRepository()),
         Provider(create: (_) => UnitRepository()),
         Provider(create: (_) => TenantRepository()),
@@ -138,9 +99,29 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => PaymentRepository()),
         Provider(create: (_) => BalanceRepository()),
 
-// ------------------------------------------------------------
-// DOMAIN SERVICES
-// ------------------------------------------------------------
+        // PROFILE REPOSITORY
+        Provider(create: (_) => ProfileRepository(db: db)),
+
+        // ------------------------------------------------------------
+        // HELPERS
+        // ------------------------------------------------------------
+        Provider(create: (_) => AddressLookupService()),
+        Provider(create: (_) => RoleResolver()),
+
+        // ------------------------------------------------------------
+        // SERVICES (depend on repositories)
+        // ------------------------------------------------------------
+        Provider(
+          create: (context) => AuthService(
+            auth: FirebaseAuth.instance,
+            userRepo: context.read<UserRepository>(),
+            orgUserRepo: context.read<OrgUserRepository>(),
+            session: context.read<AppSession>(),
+            roleResolver: context.read<RoleResolver>(),
+            contractorRepo: context.read<ContractorRepository>(),
+          ),
+        ),
+
         Provider(
           create: (context) => TenantService(
             repo: context.read<TenantRepository>(),
@@ -166,8 +147,32 @@ class MyApp extends StatelessWidget {
           ),
         ),
 
+        Provider(
+          create: (context) => ProfileService(
+            repo: context.read<ProfileRepository>(),
+          ),
+        ),
+
+        Provider(
+          create: (context) => LandlordOnboardingService(
+            session: context.read<AppSession>(),
+            propertyRepo: context.read<PropertyRepository>(),
+            unitRepo: context.read<UnitRepository>(),
+            inviteRepo: context.read<InvitationRepository>(),
+          ),
+        ),
+
+        Provider(
+          create: (context) => ContractorOnboardingService(
+            session: context.read<AppSession>(),
+            orgUserRepo: context.read<OrgUserRepository>(),
+            roleResolver: context.read<RoleResolver>(),
+            contractorRepo: context.read<ContractorRepository>(),
+          ),
+        ),
+
         // ------------------------------------------------------------
-        // LOGIN CONTROLLERS
+        // CONTROLLERS (depend on services)
         // ------------------------------------------------------------
         ChangeNotifierProvider(
           create: (context) => LoginController(
@@ -198,25 +203,16 @@ class MyApp extends StatelessWidget {
           ),
         ),
 
-        // ------------------------------------------------------------
-        // ONBOARDING SERVICES (NEW CLEAN ARCHITECTURE)
-        // ------------------------------------------------------------
-        Provider(
-          create: (context) => LandlordOnboardingService(
-            session: context.read<AppSession>(),
-            propertyRepo: context.read<PropertyRepository>(),
-            unitRepo: context.read<UnitRepository>(),
-            inviteRepo: context.read<InvitationRepository>(),
+        ChangeNotifierProvider(
+          create: (context) => ProfileController(
+            profileService: context.read<ProfileService>(),
+            orgUserRepo: context.read<OrgUserRepository>(),
+            authService: context.read<AuthService>(),
           ),
         ),
 
-        Provider(
-          create: (context) => ContractorOnboardingService(
-            session: context.read<AppSession>(),
-            orgUserRepo: context.read<OrgUserRepository>(),
-            roleResolver: context.read<RoleResolver>(),
-            contractorRepo: context.read<ContractorRepository>(),
-          ),
+        ChangeNotifierProvider(
+          create: (_) => NavBarController(),
         ),
       ],
 
@@ -234,6 +230,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-
-

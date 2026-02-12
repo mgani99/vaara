@@ -1,4 +1,5 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:my_app/login/domain/orgUser.dart';
 
 class OrgUserRepository {
   final DatabaseReference db;
@@ -128,6 +129,41 @@ class OrgUserRepository {
       "joinedAt": ServerValue.timestamp,
     });
   }
+  Future<List<OrgUser>> getOrgUsersForUser({
+    required String orgId,
+    required int userId,
+  }) async {
+    final snap = await _orgUserRef(orgId, userId).get();
+    if (!snap.exists) return [];
+
+    final data = snap.value as Map<dynamic, dynamic>;
+
+    // Today: one role per user per org
+    // Future: support multiple roles by storing a list under OrgUsers/{orgId}/{userId}/roles
+    return [
+      OrgUser(
+        orgId: orgId,
+        userId: data["userId"].toString(),
+        role: data["role"],
+        ownershipPercent: (data["ownershipPercent"] ?? 100).toDouble(),
+        isDefaultRole: data["isDefaultRole"] ?? false,
+      )
+    ];
+  }
+  Future<void> updateOrgUser(OrgUser orgUser) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await _orgUserRef(orgUser.orgId, int.parse(orgUser.userId)).update({
+      "userId": orgUser.userId,
+      "role": orgUser.role,
+      "ownershipPercent": orgUser.ownershipPercent,
+      "isDefaultRole": orgUser.isDefaultRole,
+      "updatedAt": now,
+    });
+  }
+
+
+
 
 }
 
