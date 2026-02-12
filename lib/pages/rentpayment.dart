@@ -120,7 +120,8 @@ class RentPaymentHome extends State<RentPaymentPage> {
                               title: _buildTitle((filtering? listOfSearchFilter : getTxSummaryList(props))[index],props),
                               //subtitle: ,
                               //trailing: SizedBox(width: 1,),
-                              children: getTransactionList((filtering? listOfSearchFilter : getTxSummaryList(props))[index],props),
+                              children:
+                              getTransactionList((filtering? listOfSearchFilter : getTxSummaryList(props))[index],props),
                             ),
                           ),
                         ),

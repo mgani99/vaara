@@ -51,7 +51,6 @@ class DefaultFirebaseOptions {
     authDomain: 'reapp-d4d07.firebaseapp.com',
     storageBucket: 'reapp-d4d07.appspot.com',
     measurementId: 'G-51EQL8HSFR',
-    databaseURL: "https://reapp-d4d07-default-rtdb.firebaseio.com/"
   );
 
 
