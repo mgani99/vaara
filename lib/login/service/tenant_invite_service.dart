@@ -42,15 +42,16 @@ class TenantInviteService {
     required String unitId,
     required String roleFromInvite,
   }) async {
-    final userId = UserId.fromSession(session.userId).value;
+    final userId = session.user?.userId;
 
     // 1. Add the role defined in the invitation
-    await orgUserRepo.addUserToOrg(
-      orgId: orgId,
-      userId: userId,
-      role: roleFromInvite,
+    await orgUserRepo.addRole(
+      orgId.toString(),
+      userId.toString(),
+      roleFromInvite,
     );
 
+    await orgUserRepo.createUserOrgsForTenant(userId!, orgId);
     // 2. Only tenants get assigned to units
     if (roleFromInvite == "tenant") {
       await unitRepo.assignTenantToUnit(

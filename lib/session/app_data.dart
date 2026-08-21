@@ -1,168 +1,270 @@
 import 'package:flutter/foundation.dart';
-import 'package:my_app/session/user_role.dart';
+import 'package:firebase_database/firebase_database.dart';
+
+import 'package:my_app/login/domain/re_user.dart';
+import 'package:my_app/login/model/user_repository.dart';
+import 'package:my_app/login/service/role_resolver.dart';
+import 'package:my_app/login/model/org_user_repository.dart';
+import 'package:my_app/property/domain/payment_model.dart';
+
+import 'package:my_app/property/domain/property_model.dart';
+import 'package:my_app/property/model/property_cache_sync_repository.dart';
+
+import 'package:my_app/property/model/property_repository.dart';
+import 'package:my_app/property/model/unit_repository.dart';
+import 'package:my_app/property/model/lease_details_repository.dart';
+import 'package:my_app/property/model/tenant_repository.dart';
+
+
 
 class AppSession extends ChangeNotifier {
-  // ------------------------------------------------------------
-  // USER + ORG
-  // ------------------------------------------------------------
-  String? userId;
-  String? userEmail;
-  String? userName;
+  // ============================================================
+  // USER + ORG + ROLE
+  // ============================================================
+  ReUser? _user;
+  String? _activeOrgId;
+  String? _activeOrgName;
+  String? _activeRole;
 
-  String? activeOrgId;
-  UserRole? activeRole;
+  List<Map<String, dynamic>> _organizations = [];
 
-  // List of org IDs the user belongs to
-  List<String> orgIds = [];
+  // ============================================================
+  // ORG-SCOPED CACHES
+  // ============================================================
+  final Map<String, PropertyModel> _propertyCache = {};
+  final Map<String, UnitModel> _unitCache = {};
+  final Map<String, LeaseDetailsModel> _currentLeaseCache = {};
+  final Map<String, TenantModel> _tenantCache = {};
 
-  // Optional: org names (if you want to store them)
-  Map<String, String> orgNames = {};
+  // ============================================================
+  // REPOSITORIES
+  // ============================================================
+  final RoleResolver roleResolver;
+  final OrgUserRepository orgUserRepo;
+  final UserPreferencesRepository prefsRepo;
 
-  // ------------------------------------------------------------
-  // PROPERTY + UNIT CONTEXT (NEW)
-  // ------------------------------------------------------------
-  String? activePropertyId;
-  String? activeUnitId;
-  String? activeUnitName;
+  final PropertyRepository propertyRepo;
+  final UnitRepository unitRepo;
+  final LeaseDetailsRepository leaseRepo;
+  final TenantRepository tenantRepo;
 
-  // ------------------------------------------------------------
-  // MONTH NAVIGATION (Dashboard)
-  // ------------------------------------------------------------
-  DateTime _navigationDate = DateTime.now();
-  DateTime get navigationDate => _navigationDate;
+  // ============================================================
+  // REALTIME SYNC SERVICE
+  // ============================================================
+  late final CacheSyncService cacheSync;
 
-  void nextMonth() {
-    _navigationDate = DateTime(
-      _navigationDate.year,
-      _navigationDate.month + 1,
-      1,
+  AppSession({
+    required this.roleResolver,
+    required this.orgUserRepo,
+    required this.prefsRepo,
+    required this.propertyRepo,
+    required this.unitRepo,
+    required this.leaseRepo,
+    required this.tenantRepo,
+  }) {
+    cacheSync = CacheSyncService(
+      db: FirebaseDatabase.instance,
+      session: this,
     );
-    notifyListeners();
   }
 
-  void previousMonth() {
-    _navigationDate = DateTime(
-      _navigationDate.year,
-      _navigationDate.month - 1,
-      1,
-    );
-    notifyListeners();
-  }
+  // ============================================================
+  // GETTERS
+  // ============================================================
+  ReUser? get user => _user;
+  String? get activeOrgId => _activeOrgId;
+  String? get activeOrgName => _activeOrgName;
+  String? get activeRole => _activeRole;
+  List<Map<String, dynamic>> get organizations => _organizations;
 
-  // ------------------------------------------------------------
-  // ACTIVE ORG NAME
-  // ------------------------------------------------------------
-  String? get activeOrgName {
-    if (activeOrgId == null) return null;
-    return orgNames[activeOrgId];
-  }
+  Map<String, PropertyModel> get propertyCache => _propertyCache;
+  Map<String, UnitModel> get unitCache => _unitCache;
+  Map<String, LeaseDetailsModel> get currentLeaseCache => _currentLeaseCache;
+  Map<String, TenantModel> get tenantCache => _tenantCache;
 
-  void setOrgName(String orgId, String name) {
-    orgNames[orgId] = name;
-    notifyListeners();
-  }
+  List<PaymentModel> get recentPayments => _recentPayments;
+  final List<PaymentModel> _recentPayments = [];
 
-  // ------------------------------------------------------------
+  // ============================================================
   // SETTERS
-  // ------------------------------------------------------------
-  void setUser({
-    required String id,
-    String? email,
-    String? name,
-  }) {
-    userId = id;
-    userEmail = email;
-    userName = name;
+  // ============================================================
+  void setUser(ReUser user) {
+    _user = user;
     notifyListeners();
   }
 
-  void setActiveOrg(String orgId) {
-    activeOrgId = orgId;
+  void setOrganizations(List<Map<String, dynamic>> orgs) {
+    _organizations = orgs;
     notifyListeners();
   }
 
-  void setActiveRole(UserRole role) {
-    activeRole = role;
+  void updateTenantInCache(TenantModel tenant) {
+    _tenantCache[tenant.tenantId] = tenant;
+    notifyListeners();
+  }
+  void updateLeaseInCache(LeaseDetailsModel lease) {
+    _currentLeaseCache[lease.leaseId] = lease;
+    notifyListeners();
+  }
+  void updateUnitInCache(UnitModel unit) {
+    _unitCache[unit.unitId] = unit;
     notifyListeners();
   }
 
-  void setOrgMemberships(List<String> orgs) {
-    orgIds = orgs;
-    notifyListeners();
-  }
+  void setActiveOrg(String? orgId) {
+    _activeOrgId = orgId;
 
-  // ------------------------------------------------------------
-  // PROPERTY + UNIT CONTEXT (NEW)
-  // ------------------------------------------------------------
-  void setPropertyContext({
-    required String propertyId,
-    required String unitId,
-    required String unitName,
-  }) {
-    activePropertyId = propertyId;
-    activeUnitId = unitId;
-    activeUnitName = unitName;
-    notifyListeners();
-  }
-
-  // ------------------------------------------------------------
-  // ENSURE USER LOADED (NEW)
-  // Called on HomePage initState()
-  // ------------------------------------------------------------
-  Future<void> ensureUserLoaded() async {
-    if (userId == null) return;
-
-    // In your real app, fetch user profile here:
-    // final profile = await userRepo.getUser(userId!);
-
-    // Fallback if missing
-    userName ??= "User";
-
-    notifyListeners();
-  }
-
-  // ------------------------------------------------------------
-  // CLEAR SESSION
-  // ------------------------------------------------------------
-  void clear() {
-    userId = null;
-    userEmail = null;
-    userName = null;
-
-    activeOrgId = null;
-    activeRole = null;
-
-    activePropertyId = null;
-    activeUnitId = null;
-    activeUnitName = null;
-
-    orgIds = [];
-    orgNames = {};
-
-    _navigationDate = DateTime.now();
-
-    notifyListeners();
-  }
-}
-
-
-/// Strongly-typed wrapper around a userId.
-/// Domain layer uses `int`, UI/session uses `String`.
-class UserId {
-  final int value;
-
-  const UserId(this.value);
-
-  factory UserId.fromSession(String? id) {
-    if (id == null) {
-      throw StateError("Session userId is null");
+    if (orgId != null) {
+      //print("attacheing cache");
+      cacheSync.attachOrg(orgId);   // ⭐ REALTIME SYNC ENABLED
+    } else {
+      cacheSync.detachOrg();        // ⭐ STOP LISTENERS
     }
-    return UserId(int.parse(id));
+
+    notifyListeners();
   }
 
-  String get asString => value.toString();
-  int get asInt => value;
+  void setActiveOrgName(String? name) {
+    _activeOrgName = name;
+    notifyListeners();
+  }
 
-  @override
-  String toString() => value.toString();
+  void setActiveRole(String? role) {
+    _activeRole = role;
+    notifyListeners();
+  }
+
+  // ============================================================
+  // CLEAR ORG-SCOPED CACHE
+  // ============================================================
+  void clearOrgScopedData() {
+    _propertyCache.clear();
+    _unitCache.clear();
+    _currentLeaseCache.clear();
+    _tenantCache.clear();
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // LOAD ORG-SCOPED DATA (initial load only)
+  // ============================================================
+  Future<void> loadOrgScopedData() async {
+    final orgId = activeOrgId;
+    if (orgId == null) return;
+
+    // 1. PROPERTIES
+    final properties = await propertyRepo.getPropertiesForOrg(orgId);
+    _propertyCache
+      ..clear()
+      ..addEntries(properties.map((p) => MapEntry(p.propertyId, p)));
+
+    // 2. UNITS
+    final units = await unitRepo.getUnitsForOrg(orgId);
+    _unitCache
+      ..clear()
+      ..addEntries(units.map((u) => MapEntry(u.unitId, u)));
+
+    // 3. CURRENT LEASES
+    final leases = await leaseRepo.getCurrentLeasesForOrg(orgId);
+    _currentLeaseCache
+      ..clear()
+      ..addEntries(leases.map((l) => MapEntry(l.leaseId, l)));
+
+    // 4. TENANTS
+    final tenantIds = leases
+        .expand((l) => l.tenantIds ?? [])
+        .map((id) => id.toString())
+        .toSet()
+        .toList();
+
+    final tenants = await tenantRepo.getTenantsByIds(orgId, tenantIds);
+
+    _tenantCache
+      ..clear()
+      ..addEntries(tenants.map((t) => MapEntry(t.tenantId, t)));
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // LOAD USER + ORG + ROLE
+  // ============================================================
+  Future<void> ensureUserLoaded() async {
+    if (_user == null) return;
+    if (_activeOrgId != null && _activeRole != null && _activeOrgName != null) {
+      return;
+    }
+
+    final userId = _user!.userId.toString();
+
+    // Load orgs for dropdown
+    final orgs = await orgUserRepo.getOrgsForUser(userId);
+    setOrganizations(orgs);
+
+    final prefs = await prefsRepo.getPreferences(userId);
+
+    // ------------------------------------------------------------
+    // 1. Saved default org
+    // ------------------------------------------------------------
+    if (prefs?.defaultOrgId != null) {
+      final orgId = prefs!.defaultOrgId!;
+      final orgUser = await orgUserRepo.getOrgUser(orgId, userId);
+      final orgName = await orgUserRepo.getOrgName(orgId);
+
+      if (orgUser != null) {
+        final role = await roleResolver.resolveRole(
+          userId: userId,
+          orgId: orgId,
+        );
+
+        setActiveOrg(orgId);
+        setActiveOrgName(orgName);
+        setActiveRole(role);
+
+        await loadOrgScopedData();   // ⭐ initial load
+        return;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 2. Choose best org + role
+    // ------------------------------------------------------------
+    final best = await roleResolver.chooseBestOrgAndRole(userId);
+
+    if (best != null) {
+      final orgId = best['orgId']!;
+      final role = best['role']!;
+      final orgName = await orgUserRepo.getOrgName(orgId);
+
+      setActiveOrg(orgId);
+      setActiveOrgName(orgName);
+      setActiveRole(role);
+
+      await prefsRepo.setDefaultOrg(userId, orgId);
+
+      await loadOrgScopedData();     // ⭐ initial load
+    }
+  }
+
+  // ============================================================
+  // CLEAR ENTIRE SESSION
+  // ============================================================
+  void clear() {
+    cacheSync.detachOrg();           // ⭐ stop realtime listeners
+
+    _user = null;
+    _activeOrgId = null;
+    _activeOrgName = null;
+    _activeRole = null;
+
+    clearOrgScopedData();
+    _organizations = [];
+
+    notifyListeners();
+  }
+
+  Future<void> setDefaultOrg(String orgId) async {
+    await prefsRepo.setDefaultOrg(_user!.userId.toString(), orgId);
+  }
 }

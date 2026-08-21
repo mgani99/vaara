@@ -7,7 +7,6 @@ import 'package:my_app/login/model/invitation_repository.dart';
 import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/login/service/role_resolver.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
 import 'package:my_app/route/route_constants.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -31,64 +30,107 @@ class _SplashScreenState extends State<SplashScreen> {
     final inviteRepo = context.read<InvitationRepository>();
     final orgUserRepo = context.read<OrgUserRepository>();
     final roleResolver = context.read<RoleResolver>();
+    final prefsRepo = context.read<UserPreferencesRepository>();
 
+    // ------------------------------------------------------------
     // 1. Firebase user
+    // ------------------------------------------------------------
     final firebaseUser = auth.currentUser;
-    if (firebaseUser == null) {
-      return _goTo(logInScreenRoute);
-    }
+    if (firebaseUser == null) return _goTo(logInScreenRoute);
 
     await firebaseUser.reload();
     final refreshed = auth.currentUser;
-    if (refreshed == null) {
-      return _goTo(logInScreenRoute);
-    }
+    if (refreshed == null) return _goTo(logInScreenRoute);
 
+    // ------------------------------------------------------------
     // 2. Email verification
+    // ------------------------------------------------------------
     if (!refreshed.emailVerified) {
-      return _goTo(verifyEmailRoute, arguments: {
-        "email": refreshed.email,
-      });
+      return _goTo(
+        verifyEmailRoute,
+        arguments: {"email": refreshed.email},
+      );
     }
 
+    // ------------------------------------------------------------
     // 3. Load ReUser
-    final reUser = await userRepo.getByFirebaseUid(refreshed.uid);
-    if (reUser == null) {
-      return _goTo(enrollmentRoute, arguments: {
-        "email": refreshed.email,
-        "firebaseUid": refreshed.uid,
-      });
+    // ------------------------------------------------------------
+    final reUserMap = await userRepo.getUserByFirebaseUid(refreshed.uid);
+    if (reUserMap == null) {
+      return _goTo(
+        enrollmentRoute,
+        arguments: {
+          "email": refreshed.email,
+          "firebaseUid": refreshed.uid,
+        },
+      );
     }
 
-    session.setUser(id: reUser.userId.toString(), name: reUser.firstName, email: reUser.email);
+    final reUser = reUserMap;
+    session.setUser(reUser);
 
+    // ------------------------------------------------------------
     // 4. Invitations
+    // ------------------------------------------------------------
     final invites = await inviteRepo.getInvitationsForEmail(reUser.email);
     if (invites.isNotEmpty) {
       return _goTo(tenantInviteRoute, arguments: invites.first);
     }
 
-    // 5. Org memberships
-    final orgIds = await orgUserRepo.getUserOrgs(reUser.userId);
-    if (orgIds.isEmpty) {
+    // ------------------------------------------------------------
+    // 5. Load all orgs for dropdown
+    // ------------------------------------------------------------
+    final orgs = await orgUserRepo.getOrgsForUser(reUser.userId.toString());
+    session.setOrganizations(orgs);
+
+    if (orgs.isEmpty) {
       return _goTo(roleSelectionRoute);
     }
 
-    session.setOrgMemberships(orgIds);
+    // ------------------------------------------------------------
+    // 6. Resolve active org + role
+    // ------------------------------------------------------------
+    final prefs = await prefsRepo.getPreferences(reUser.userId.toString());
 
-    // 6. Set active org + role
-    final activeOrg = orgIds.first;
-    session.setActiveOrg(activeOrg);
+    if (prefs?.defaultOrgId != null) {
+      final orgId = prefs!.defaultOrgId!;
+      final orgUser = await orgUserRepo.getOrgUser(orgId, reUser.userId.toString());
+      final orgName = await orgUserRepo.getOrgName(orgId);
 
-    final resolvedRole = await roleResolver.resolveRole(
-      userId: session.userId!,
-      orgId: activeOrg,
+      if (orgUser != null) {
+        final role = await roleResolver.resolveRole(
+          userId: reUser.userId.toString(),
+          orgId: orgId,
+        );
+        //session.loadOrgScopedData();
+        session.setActiveOrg(orgId);
+        session.setActiveOrgName(orgName);
+        session.setActiveRole(role);
+
+        return _goTo(homeRoute);
+      }
+    }
+
+    // Fallback: choose best org + role
+    final best = await roleResolver.chooseBestOrgAndRole(
+      reUser.userId.toString(),
     );
 
-    session.setActiveRole(resolvedRole);
+    if (best != null) {
+      final orgId = best['orgId']!;
+      final role = best['role']!;
+      final orgName = await orgUserRepo.getOrgName(orgId);
+      //session.loadOrgScopedData();
+      session.setActiveOrg(orgId);
+      session.setActiveOrgName(orgName);
+      session.setActiveRole(role);
 
-    // 7. Go to home
-    return _goTo(homeRoute);
+      await prefsRepo.setDefaultOrg(reUser.userId.toString(), orgId);
+
+      return _goTo(homeRoute);
+    }
+
+    return _goTo(roleSelectionRoute);
   }
 
   void _goTo(String route, {Object? arguments}) {

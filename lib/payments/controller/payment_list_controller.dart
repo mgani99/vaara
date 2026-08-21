@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:my_app/payments/service/payment_list_service.dart';
-import 'package:my_app/property/domain/lease_details_model.dart';
+import 'package:my_app/property/domain/property_model.dart';
 import 'package:my_app/property/domain/payment_model.dart';
-import 'package:my_app/property/domain/tenant_model.dart';
-import 'package:my_app/property/domain/unit_model.dart';
 
+
+import '../../property/domain/property_model.dart';
 
 class PaymentListController extends ChangeNotifier {
   final PaymentListService service;
@@ -46,6 +46,9 @@ class PaymentListController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ------------------------------------------------------------
+  // LOAD UNITS
+  // ------------------------------------------------------------
   Future<void> _loadUnits() async {
     final units = await service.getAllUnits(orgId);
     for (final u in units) {
@@ -53,36 +56,36 @@ class PaymentListController extends ChangeNotifier {
     }
   }
 
+  // ------------------------------------------------------------
+  // LOAD PAYMENTS FOR MONTH
+  // ------------------------------------------------------------
   Future<void> _loadPayments() async {
     final period = _formatPeriod(paymentMonth);
     payments = await service.getPaymentsForPeriod(orgId, period);
   }
 
+  // ------------------------------------------------------------
+  // LOAD LEASE HISTORY + ACTIVE LEASE
+  // ------------------------------------------------------------
   Future<void> _loadLeaseData() async {
     for (final unit in unitCache.values) {
+      // Load full lease history for this unit
       final history = await service.getLeaseHistory(orgId, unit.unitId);
       leaseHistoryCache[unit.unitId] = history;
 
-      // find active lease
+      // Determine active lease for the selected month
       final active = history.firstWhere(
-            (l) => _isDateWithinLease(paymentMonth, l),
-        orElse: () => LeaseDetailsModel(
-          leaseId: "",
-          orgId: orgId,
-          propertyId: unit.propertyId,
-          unitId: unit.unitId,
-          tenantIds: [],
-          startDate: "1900-01-01",
-          endDate: "1900-01-01",
-          rentAmount: 0,
-          createdAt: 0,
-        ),
+            (l ) => _isDateWithinLease(paymentMonth, l) && l.status == "active",
+        orElse: () => _emptyLease(unit),
       );
 
       currentLeaseCache[unit.unitId] = active;
     }
   }
 
+  // ------------------------------------------------------------
+  // LOAD TENANTS FOR ACTIVE LEASES
+  // ------------------------------------------------------------
   Future<void> _loadTenants() async {
     final ids = <String>{};
 
@@ -96,17 +99,46 @@ class PaymentListController extends ChangeNotifier {
     }
   }
 
+  // ------------------------------------------------------------
+  // CHECK IF DATE FALLS WITHIN LEASE RANGE
+  // ------------------------------------------------------------
   bool _isDateWithinLease(DateTime date, LeaseDetailsModel lease) {
-    final start = DateTime.tryParse(lease.startDate) ?? DateTime(1900);
-    final end = DateTime.tryParse(lease.endDate) ?? DateTime(1900);
+    final start = lease.parseEpocTime(lease.startDateEpoch);
+    final end = lease.parseEpocTime(lease.endDateEpoch);
+
     return (date.isAfter(start) || date.isAtSameMomentAs(start)) &&
         (date.isBefore(end) || date.isAtSameMomentAs(end));
   }
 
+  // ------------------------------------------------------------
+  // FORMAT PERIOD (MMYYYY)
+  // ------------------------------------------------------------
   String _formatPeriod(DateTime dt) {
     return "${dt.month.toString().padLeft(2, '0')}${dt.year}";
   }
 
+  // ------------------------------------------------------------
+  // EMPTY LEASE (fallback for vacant units)
+  // ------------------------------------------------------------
+  LeaseDetailsModel _emptyLease(UnitModel unit) {
+    return LeaseDetailsModel(
+      leaseId: "",
+      orgId: orgId,
+      propertyId: unit.propertyId,
+      unitId: unit.unitId,
+      tenantIds: [],
+      startDateEpoch: 0,
+      endDateEpoch: 0,
+      rentAmount: 0,
+      createdAt: 0,
+      updatedAt: 0,
+      status: "ended",
+    );
+  }
+
+  // ------------------------------------------------------------
+  // MONTH NAVIGATION
+  // ------------------------------------------------------------
   void nextMonth() {
     paymentMonth = DateTime(paymentMonth.year, paymentMonth.month + 1, 1);
     init();
@@ -117,6 +149,9 @@ class PaymentListController extends ChangeNotifier {
     init();
   }
 
+  // ------------------------------------------------------------
+  // SEARCH + FILTER
+  // ------------------------------------------------------------
   void setSearch(String q) {
     searchQuery = q;
     notifyListeners();

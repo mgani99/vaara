@@ -5,7 +5,6 @@ import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/login/service/auth_service.dart';
 import 'package:my_app/profile/service/profile_service.dart';
 
-import '../../route/route_constants.dart';
 
 class ProfileController extends ChangeNotifier {
   final ProfileService profileService;
@@ -13,8 +12,6 @@ class ProfileController extends ChangeNotifier {
   final AuthService authService;
 
   ReUser? currentUser;
-  String? currentOrgId;
-  List<OrgUser> linkedUsers = [];
 
   ProfileController({
     required this.profileService,
@@ -22,15 +19,9 @@ class ProfileController extends ChangeNotifier {
     required this.authService,
   });
 
-  // ------------------------------------------------------------
-  // LOAD CURRENT USER + ORG + ROLES
-  // ------------------------------------------------------------
-  Future<void> loadUser(int userId, String firebaseUid, String orgId) async {
+  // LOAD USER (safe)
+  Future<void> loadUser(int userId) async {
     currentUser = await profileService.getUser(userId);
-    linkedUsers = await orgUserRepo.getOrgUsersForUser(
-      orgId: orgId,
-      userId: userId,
-    );
     notifyListeners();
   }
 
@@ -40,57 +31,24 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------------------------------------------------
-  // LOAD ONLY ORG ROLES FOR THIS USER
-  // ------------------------------------------------------------
-  Future<List<OrgUser>> loadLinkedUsers() async {
-    if (currentUser == null || currentOrgId == null) return [];
+  // LOAD ORG USER (safe)
+  Future<OrgUser?> loadActiveOrgUser() async {
+    if (currentUser == null) return null;
 
-    linkedUsers = await orgUserRepo.getOrgUsersForUser(
-      orgId: currentOrgId!,
-      userId: currentUser!.userId,
+    final session = authService.session;
+    final orgId = session.activeOrgId;
+    if (orgId == null) return null;
+
+    return await orgUserRepo.getOrgUser(
+      orgId,
+      currentUser!.userId.toString(),
     );
-
-    return linkedUsers;
   }
 
-  // ------------------------------------------------------------
-  // SWITCH ROLE (OrgUser.isDefaultRole)
-  // ------------------------------------------------------------
-  Future<void> switchRole(OrgUser selected) async {
-    if (currentUser == null || currentOrgId == null) return;
-
-    // Update the single OrgUser record for this user in this org
-    final updated = selected.copyWith(
-      isDefaultRole: true,
-    );
-
-    await orgUserRepo.updateOrgUser(updated);
-
-    // Refresh local state
-    linkedUsers = await loadLinkedUsers();
-    notifyListeners();
-  }
-
-
-  // ------------------------------------------------------------
-  // SIGN OUT
-  // ------------------------------------------------------------
-  Future<void> signOut(BuildContext context) async {
+  // CLEAN LOGOUT — NO notifyListeners, NO context
+  Future<bool> signOut() async {
     await authService.signOut();
 
-    currentUser = null;
-    linkedUsers = [];
-    currentOrgId = null;
-
-    notifyListeners();
-
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      logInScreenRoute,
-          (route) => false,
-    );
+    return true;
   }
 }
-
-

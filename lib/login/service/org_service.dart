@@ -10,17 +10,17 @@ class OrgService {
     required OrgModel org,
     required OrgUserModel owner,
   }) async {
-    final orgRef = _db.child("Orgs").push();
+    final orgRef = _db.child("orgs").push();
     final orgId = orgRef.key!;
 
     // Save org
     await orgRef.set(org.toMap());
 
     // Save owner under OrgUsers
-    await _db.child("OrgUsers/$orgId/${owner.userId}").set(owner.toMap());
+    await _db.child("orgUsers/$orgId/${owner.userId}").set(owner.toMap());
 
     // Save membership under UserOrgs
-    await _db.child("UserOrgs/${owner.userId}/$orgId").set(true);
+    await _db.child("userOrgs/${owner.userId}/$orgId").set(true);
 
     return orgId;
   }

@@ -1,12 +1,20 @@
-import 'package:firebase_database/firebase_database.dart';
-import 'package:my_app/property/domain/unit_model.dart';
 import 'package:my_app/property/model/unit_repository.dart';
+import 'package:my_app/session/app_data.dart';
+
+import '../domain/property_model.dart';
 
 
 
 
 class UnitService {
-  final UnitRepository repo = UnitRepository();
+  final UnitRepository repo;
+  final AppSession session;
+
+  UnitService({
+    required this.repo,
+    required this.session,
+  });
+
 
   Future<List<UnitModel>> getUnits(String orgId) {
     return repo.fetchUnits(orgId);
@@ -17,7 +25,15 @@ class UnitService {
     return all.where((u) => u.propertyId == propertyId).toList();
   }
 
-  Future<String> createUnit(UnitModel unit) {
-    return repo.createUnit(unit);
+  Future<UnitModel> createUnit(String orgId, UnitModel unit) async {
+    final id = await repo.createUnit(unit);
+
+    final newUnit = unit.copyWith(unitId: id);
+
+    await repo.updateUnitId(id, orgId);
+    return newUnit;
   }
+
+
+  Future<void> updateUnit(String orgId, String unitId, {required int bedrooms, required double bathrooms, required String name, required String type}) async {}
 }

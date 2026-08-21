@@ -4,18 +4,20 @@ import 'package:my_app/login/model/user_repository.dart';
 import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/login/service/role_resolver.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
+
 
 class EnrollmentController extends ChangeNotifier {
   final UserRepository userRepo;
   final OrgUserRepository orgUserRepo;
   final RoleResolver roleResolver;
+  final UserPreferencesRepository prefsRepo;
   final AppSession session;
 
   EnrollmentController({
     required this.userRepo,
     required this.orgUserRepo,
     required this.roleResolver,
+    required this.prefsRepo,
     required this.session,
   });
 
@@ -46,34 +48,40 @@ class EnrollmentController extends ChangeNotifier {
       // ------------------------------------------------------------
       // 2. Create default org for new landlord
       // ------------------------------------------------------------
-      final String orgId = await orgUserRepo.createDefaultOrg(
+      /*final String orgId = await orgUserRepo.createDefaultOrg(
         ownerUserId: reUser.userId,
-        orgName: "${reUser.firstName} ${reUser.lastName}'s Organization",
+        orgName: "${reUser.firstName}-${reUser.lastName}",
       );
 
-      // NOTE:
       // createDefaultOrg() already:
-      // - creates the org
-      // - assigns the user as landlord
+      // - creates org
+      // - assigns user as landlord
       // - writes orgUsers/<orgId>/<userId>
       // - writes userOrgs/<userId>/<orgId>
 
       // ------------------------------------------------------------
-      // 3. Update session with user + org
+      // 3. Save defaultOrgId in UserPreferences
       // ------------------------------------------------------------
-      session.setUser(id: reUser.userId.toString(), name: reUser.firstName, email: reUser.email);
-      session.setActiveOrg(orgId);
-      session.setOrgMemberships([orgId]);
+      await prefsRepo.setDefaultOrg(
+        reUser.userId.toString(),
+        orgId,
+      );
+*/
+      // ------------------------------------------------------------
+      // 4. Update session with user + org
+      // ------------------------------------------------------------
+      session.setUser(reUser);
+  //    session.setActiveOrg(orgId);
 
       // ------------------------------------------------------------
-      // 4. Resolve role using RoleResolver
+      // 5. Resolve role using RoleResolver
       // ------------------------------------------------------------
-      final UserRole resolvedRole = await roleResolver.resolveRole(
+     /* final String resolvedRole = await roleResolver.resolveRole(
         userId: reUser.userId.toString(),
         orgId: orgId,
       );
 
-      session.setActiveRole(resolvedRole);
+      session.setActiveRole(resolvedRole);*/
 
     } finally {
       _setLoading(false);

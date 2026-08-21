@@ -24,13 +24,11 @@ class ContractorOnboardingService {
     String? notes,
   }) async {
     final orgId = session.activeOrgId!;
-    final userId = int.parse(session.userId!);
+    final userId = session.user!.userId;
 
     // 1. Add contractor to org
-    await orgUserRepo.addUserToOrg(
-      orgId: orgId,
-      userId: userId,
-      role: "contractor",
+    await orgUserRepo.addRole(
+      orgId, userId.toString(), "contractor",
     );
 
     // 2. Create contractor profile
@@ -45,7 +43,7 @@ class ContractorOnboardingService {
 
     // 3. Resolve and update session role
     final resolvedRole = await roleResolver.resolveRole(
-      userId: session.userId!,
+      userId: session.user!.userId.toString(),
       orgId: orgId,
     );
 

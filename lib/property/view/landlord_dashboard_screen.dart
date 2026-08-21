@@ -1,4 +1,3 @@
-// landlord_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,36 +25,17 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
     final controller = context.watch<LandlordDashboardController>();
     final state = controller.state;
 
-    final navDate = session.navigationDate;
-    final monthLabel =
-        "${navDate.year}-${navDate.month.toString().padLeft(2, '0')}";
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(session.activeOrgName ?? "Portfolio"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              session.previousMonth();
-              controller.load();
-            },
-          ),
-          Center(child: Text(monthLabel)),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              session.nextMonth();
-              controller.load();
-            },
-          ),
-        ],
+        title: Text(session.activeOrgId ?? "Portfolio"),
       ),
       body: switch (state) {
         LandlordDashboardLoading _ =>
         const Center(child: CircularProgressIndicator()),
+
         LandlordDashboardError s =>
             Center(child: Text("Error: ${s.message}")),
+
         LandlordDashboardLoaded s =>
             _buildContent(context, s.data),
       },

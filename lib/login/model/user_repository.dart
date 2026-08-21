@@ -15,7 +15,7 @@ class UserRepository {
     required String firebaseUid,
     String authProvider = "password",
   }) async {
-    final nextIdRef = db.child("Users/nextUserId");
+    final nextIdRef = db.child("users/nextUserId");
 
     // Atomic increment
     final int newUserId = await nextIdRef.runTransaction((current) {
@@ -51,7 +51,7 @@ class UserRepository {
       pushNotifications: true,
     );
 
-    await db.child("Users/$newUserId").set(user.toJson());
+    await db.child("users/$newUserId").set(user.toJson());
 
     return user;
   }
@@ -60,7 +60,7 @@ class UserRepository {
   // GET USER BY ID
   // ---------------------------------------------------------
   Future<ReUser?> getUser(int userId) async {
-    final snapshot = await db.child("Users/$userId").get();
+    final snapshot = await db.child("users/$userId").get();
     if (!snapshot.exists) return null;
 
     final value = snapshot.value;
@@ -73,7 +73,7 @@ class UserRepository {
   // GET USER BY FIREBASE UID
   // ---------------------------------------------------------
   Future<ReUser?> getByFirebaseUid(String firebaseUid) async {
-    final snapshot = await db.child("Users").get();
+    final snapshot = await db.child("users").get();
     if (!snapshot.exists) return null;
 
     for (var child in snapshot.children) {
@@ -96,7 +96,7 @@ class UserRepository {
   // GET USER BY EMAIL
   // ---------------------------------------------------------
   Future<ReUser?> getByEmail(String email) async {
-    final snapshot = await db.child("Users").get();
+    final snapshot = await db.child("users").get();
     if (!snapshot.exists) return null;
 
     for (var child in snapshot.children) {
@@ -121,7 +121,7 @@ class UserRepository {
   // ---------------------------------------------------------
   Future<void> updateUser(int userId, Map<String, dynamic> updates) async {
     updates['updatedAt'] = DateTime.now().millisecondsSinceEpoch;
-    await db.child("Users/$userId").update(updates);
+    await db.child("users/$userId").update(updates);
   }
 
   // ---------------------------------------------------------
@@ -129,7 +129,7 @@ class UserRepository {
   // ---------------------------------------------------------
   Future<void> updateLastLogin(int userId) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await db.child("Users/$userId").update({
+    await db.child("users/$userId").update({
       "lastLoginAt": now,
       "updatedAt": now,
     });
@@ -139,7 +139,7 @@ class UserRepository {
   // ADD FCM TOKEN (multi-device safe)
   // ---------------------------------------------------------
   Future<void> addFcmToken(int userId, String token) async {
-    final ref = db.child("Users/$userId/fcmTokens");
+    final ref = db.child("users/$userId/fcmTokens");
     final snapshot = await ref.get();
 
     final List tokens = snapshot.value is List ? snapshot.value as List : [];
@@ -154,7 +154,7 @@ class UserRepository {
   // REMOVE FCM TOKEN
   // ---------------------------------------------------------
   Future<void> removeFcmToken(int userId, String token) async {
-    final ref = db.child("Users/$userId/fcmTokens");
+    final ref = db.child("users/$userId/fcmTokens");
     final snapshot = await ref.get();
 
     final List tokens = snapshot.value is List ? snapshot.value as List : [];
@@ -175,7 +175,7 @@ class UserRepository {
 // GET USER BY FIREBASE UID (corrected)
 // ---------------------------------------------------------
   Future<ReUser?> getUserByFirebaseUid(String firebaseUid) async {
-    final snapshot = await db.child("Users").get();
+    final snapshot = await db.child("users").get();
     if (!snapshot.exists) return null;
 
     for (var child in snapshot.children) {
@@ -200,7 +200,7 @@ class UserRepository {
   Future<void> updateOnboardingCompleted(int userId, bool completed) async {
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    await db.child("Users/$userId").update({
+    await db.child("users/$userId").update({
       "onboardingCompleted": completed,
       "updatedAt": now,
     });
@@ -208,3 +208,32 @@ class UserRepository {
 
 
 }
+
+
+class UserPreferencesRepository {
+  final DatabaseReference _ref =
+  FirebaseDatabase.instance.ref('userPreferences');
+
+  Future<UserPreferences?> getPreferences(String userId) async {
+    final snap = await _ref.child(userId).get();
+    if (!snap.exists) return null;
+    return UserPreferences.fromMap(
+      userId,
+      Map<String, dynamic>.from(snap.value as Map),
+    );
+  }
+
+  Future<void> savePreferences(UserPreferences prefs) async {
+    await _ref.child(prefs.userId).update(prefs.toMap());
+  }
+
+  Future<void> setDefaultOrg(String userId, String orgId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    print('setting default org $orgId for user $userId');
+    await _ref.child(userId).update({
+      'defaultOrgId': orgId,
+      'updatedAt': now,
+    });
+  }
+}
+

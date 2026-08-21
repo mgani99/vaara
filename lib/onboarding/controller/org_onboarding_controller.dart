@@ -1,42 +1,51 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/login/domain/orgUser.dart';
-
-import 'package:my_app/login/domain/org_model.dart';
-import 'package:my_app/login/service/org_service.dart';
+import 'package:my_app/login/model/org_user_repository.dart';
+import 'package:my_app/login/model/user_repository.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
+
 
 class OnboardingCreateOrgController extends ChangeNotifier {
-  final OrgService _service = OrgService();
+  final OrgUserRepository orgUserRepo;
+  final UserPreferencesRepository prefsRepo;
+
+  OnboardingCreateOrgController({
+    required this.orgUserRepo,
+    required this.prefsRepo,
+  });
 
   bool saving = false;
 
   Future<String> createOrg({
     required AppSession session,
     required String name,
-    required String type,
+    required String type, // still accepted if UI uses it
   }) async {
     saving = true;
     notifyListeners();
 
-    final org = OrgModel(
-      orgId: "",
-      name: name,
-      type: type,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
+    final userId = session.user!.userId;
+
+    // ------------------------------------------------------------
+    // 1. Create new org using the new unique-name generator
+    // ------------------------------------------------------------
+    final orgId = await orgUserRepo.createDefaultOrg(
+      ownerUserId: userId,
+      orgName: session.user!.firstName.toLowerCase(),
     );
 
-    final owner = OrgUserModel(
-      userId: session.userId!,
-      role: "landlord",
-      ownershipPercent: 100,
+    // ------------------------------------------------------------
+    // 2. Save default org in preferences
+    // ------------------------------------------------------------
+    await prefsRepo.setDefaultOrg(
+      userId.toString(),
+      orgId,
     );
 
-    final orgId = await _service.createOrg(org: org, owner: owner);
-
-    // Update session
+    // ------------------------------------------------------------
+    // 3. Update session
+    // ------------------------------------------------------------
     session.setActiveOrg(orgId);
-    session.setActiveRole(UserRole.landlord);
+    session.setActiveRole("landlord"); // string role
 
     saving = false;
     notifyListeners();

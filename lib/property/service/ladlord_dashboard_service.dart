@@ -2,13 +2,11 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:my_app/property/model/lease_details_repository.dart';
 import 'package:my_app/property/model/payment_repository.dart';
 import 'package:my_app/property/model/unit_repository.dart';
-import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/session/app_data.dart';
 
 class LandlordDashboardService {
   final AppSession session;
   final UnitRepository unitRepo;
-  final OrgUserRepository orgUserRepo;
   final LeaseDetailsRepository leaseRepo;
   final PaymentRepository paymentRepo;
   final DatabaseReference db;
@@ -16,7 +14,6 @@ class LandlordDashboardService {
   LandlordDashboardService({
     required this.session,
     required this.unitRepo,
-    required this.orgUserRepo,
     required this.leaseRepo,
     required this.paymentRepo,
     required this.db,
@@ -24,7 +21,7 @@ class LandlordDashboardService {
 
   Future<Map<String, dynamic>> loadDashboard() async {
     final orgId = session.activeOrgId!;
-    final navDate = session.navigationDate;
+    final now = DateTime.now();
 
     // ------------------------------------------------------------
     // UNITS
@@ -37,7 +34,7 @@ class LandlordDashboardService {
     // ------------------------------------------------------------
     final activeLeases = await leaseRepo.getActiveLeasesForMonth(
       orgId: orgId,
-      month: navDate,
+      month: now,
     );
 
     final occupiedUnitIds = <String>{};
@@ -69,8 +66,9 @@ class LandlordDashboardService {
     // ------------------------------------------------------------
     final receivedRent = await paymentRepo.sumPaymentsForMonth(
       orgId: orgId,
-      month: navDate,
-    ) ?? 0.0;
+      month: now,
+    ) ??
+        0.0;
 
     final outstanding = expectedRent - receivedRent;
 

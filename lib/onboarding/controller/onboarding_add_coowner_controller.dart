@@ -21,7 +21,7 @@ class OnboardingAddCoOwnersController extends ChangeNotifier {
       orgId: session.activeOrgId!,
       invitedEmail: email,
       ownershipPercent: percent,
-      invitedBy: session.userId!,
+      invitedBy: session.user!.userId.toString(),
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
 

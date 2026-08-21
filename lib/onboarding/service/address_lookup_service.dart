@@ -1,16 +1,47 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+/// USPS State Abbreviation Map
+const Map<String, String> usStateAbbreviations = {
+  "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+  "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+  "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
+  "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+  "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+  "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN",
+  "Mississippi": "MS", "Missouri": "MO", "Montana": "MT", "Nebraska": "NE",
+  "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ",
+  "New Mexico": "NM", "New York": "NY", "North Carolina": "NC",
+  "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK", "Oregon": "OR",
+  "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+  "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+  "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+  "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+};
+
+String abbreviateState(String state) => usStateAbbreviations[state] ?? state;
+
+/// Extract street name (remove house number)
+String extractStreetName(String street) {
+  if (street.isEmpty) return "";
+  final parts = street.split(" ");
+  if (RegExp(r'^\d').hasMatch(parts.first)) parts.removeAt(0);
+  return parts.join(" ").trim();
+}
+
 class AddressLookupService {
   static const _baseUrl = "https://nominatim.openstreetmap.org/search";
 
-  /// Debounced search (you can wrap this in your UI)
   Future<List<AddressResult>> search(String query) async {
     if (query.trim().isEmpty) return [];
 
     final uri = Uri.parse(
-      "$_baseUrl?q=${Uri.encodeComponent(query)}"
-          "&format=json&addressdetails=1&limit=5",
+        "$_baseUrl"
+            "?q=${Uri.encodeComponent(query)}"
+            "&format=json"
+            "&addressdetails=1"
+            "&limit=5"
+            "&countrycodes=us"
     );
 
     final response = await http.get(
@@ -28,24 +59,47 @@ class AddressLookupService {
 }
 
 class AddressResult {
-  final String displayName;
+  final String street;
+  final String city;
+  final String state;
+  final String zip;
   final double lat;
   final double lon;
-  final Map<String, dynamic> address;
 
   AddressResult({
-    required this.displayName,
+    required this.street,
+    required this.city,
+    required this.state,
+    required this.zip,
     required this.lat,
     required this.lon,
-    required this.address,
   });
 
+  String get formatted {
+    final abbr = abbreviateState(state);
+    return "$street, $city, $abbr - $zip";
+  }
+
   factory AddressResult.fromJson(Map<String, dynamic> json) {
+    final addr = json["address"] ?? {};
+
+    final number = addr["house_number"] ?? "";
+    final road = addr["road"] ?? "";
+    final street = "$number $road".trim();
+
+    final city = addr["city"] ??
+        addr["town"] ??
+        addr["village"] ??
+        addr["hamlet"] ??
+        "";
+
     return AddressResult(
-      displayName: json["display_name"] ?? "",
+      street: street,
+      city: city,
+      state: addr["state"] ?? "",
+      zip: addr["postcode"] ?? "",
       lat: double.tryParse(json["lat"] ?? "0") ?? 0,
       lon: double.tryParse(json["lon"] ?? "0") ?? 0,
-      address: json["address"] ?? {},
     );
   }
 }

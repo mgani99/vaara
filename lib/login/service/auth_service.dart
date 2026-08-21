@@ -1,10 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:my_app/login/model/org_user_repository.dart';
+import 'package:my_app/login/domain/re_user.dart';
 import 'package:my_app/login/model/user_repository.dart';
+import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/property/model/contractor_repository.dart';
 import 'package:my_app/login/service/role_resolver.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
+
 
 class AuthService {
   final FirebaseAuth _auth;
@@ -12,6 +13,7 @@ class AuthService {
   final OrgUserRepository orgUserRepo;
   final ContractorRepository contractorRepo;
   final RoleResolver roleResolver;
+  final UserPreferencesRepository prefsRepo;
   final AppSession session;
 
   AuthService({
@@ -20,6 +22,7 @@ class AuthService {
     required this.orgUserRepo,
     required this.contractorRepo,
     required this.roleResolver,
+    required this.prefsRepo,
     required this.session,
   }) : _auth = auth;
 
@@ -71,40 +74,119 @@ class AuthService {
     );
 
     // 3. Add user to org with role
-    await orgUserRepo.addUserToOrg(
-      orgId: orgId,
-      userId: reUser.userId,
-      role: role,
+    await orgUserRepo.addRole(
+      orgId,
+      reUser.userId.toString(),
+      role,
     );
 
-    // 4. Update session with new user
-    session.setUser(id: reUser.userId.toString(), name: reUser.firstName, email: reUser.email);
+    // 4. Save defaultOrgId in preferences
+    await prefsRepo.setDefaultOrg(
+      reUser.userId.toString(),
+      orgId,
+    );
+
+    // 5. Update session
+    session.setUser(reUser);
+
     session.setActiveOrg(orgId);
 
-    // 5. Resolve the user's role
+    // 6. Resolve role
     final resolvedRole = await roleResolver.resolveRole(
-      userId: reUser.userId.toString(),
       orgId: orgId,
+      userId: reUser.userId.toString(),
     );
 
     session.setActiveRole(resolvedRole);
   }
+
+  // ------------------------------------------------------------
+  // LOGIN (new flow)
+  // ------------------------------------------------------------
+  Future<void> login(String email, String password) async {
+    // 1. Firebase login
+    final cred = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password.trim(),
+    );
+
+    final firebaseUser = cred.user;
+    if (firebaseUser == null) throw Exception("Authentication failed");
+
+    if (!firebaseUser.emailVerified) {
+      throw Exception("Email not verified");
+    }
+
+    // 2. Load ReUser
+    final reUserMap = await userRepo.getByFirebaseUid(firebaseUser.uid);
+    if (reUserMap == null) throw Exception("User not enrolled");
+
+    final reUser = reUserMap;   // Already a ReUser
+
+
+    // 3. Update last login
+    await userRepo.updateLastLogin(reUser.userId);
+
+    // 4. Store user in session
+    session.setUser(reUser);
+
+    // 5. Load preferences
+    final prefs = await prefsRepo.getPreferences(reUser.userId.toString());
+
+    // ------------------------------------------------------------
+    // FAST PATH: Use defaultOrgId if valid
+    // ------------------------------------------------------------
+    if (prefs?.defaultOrgId != null) {
+      final orgUser = await orgUserRepo.getOrgUser(
+        prefs!.defaultOrgId!,
+        reUser.userId.toString(),
+      );
+
+      if (orgUser != null) {
+        final role = await roleResolver.resolveRole(
+          orgId: prefs.defaultOrgId!,
+          userId: reUser.userId.toString(),
+        );
+
+        session.setActiveOrg(prefs.defaultOrgId);
+        session.setActiveRole(role);
+        return;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // FALLBACK: Choose best org + role
+    // ------------------------------------------------------------
+    final best = await roleResolver.chooseBestOrgAndRole(
+      reUser.userId.toString(),
+    );
+
+    if (best != null) {
+      session.setActiveOrg(best['orgId']);
+      session.setActiveRole(best['role']);
+
+      // Save preference for next login
+      await prefsRepo.setDefaultOrg(
+        reUser.userId.toString(),
+        best['orgId']!,
+      );
+    } else {
+      // No memberships → onboarding flow
+      session.setActiveOrg(null);
+      session.setActiveRole(null);
+    }
+  }
+
+  // ------------------------------------------------------------
+  // SIGN OUT
+  // ------------------------------------------------------------
   Future<void> signOut() async {
     try {
-      // Optional: remove FCM token from user record
-      // await removeFcmTokenFromUser();
-
-      // FirebaseAuth sign-out
       await _auth.signOut();
-
-      // Optional: clear any local session cache
-      // session.clear();
-
+      session.clear();
     } catch (e) {
-      // Log or handle error if needed
       print("Error during signOut: $e");
       rethrow;
     }
   }
 }
-

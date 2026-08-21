@@ -6,14 +6,14 @@ class BalanceRepository {
 
   Future<void> updateBalance(BalanceModel balance) async {
     await _db
-        .child("Orgs/${balance.orgId}/Balances/${balance.period}/${balance.unitId}")
+        .child("orgs/${balance.orgId}/Balances/${balance.period}/${balance.unitId}")
         .set(balance.toMap());
   }
 
   Future<BalanceModel?> getBalance(
       String orgId, String period, String unitId) async {
     final snapshot = await _db
-        .child("Orgs/$orgId/Balances/$period/$unitId")
+        .child("orgs/$orgId/Balances/$period/$unitId")
         .get();
 
     if (!snapshot.exists) return null;
@@ -25,7 +25,7 @@ class BalanceRepository {
   Future<List<BalanceModel>> getBalancesForPeriod(
       String orgId, String period) async {
     final snapshot =
-    await _db.child("Orgs/$orgId/Balances/$period").get();
+    await _db.child("orgs/$orgId/Balances/$period").get();
 
     if (!snapshot.exists) return [];
 

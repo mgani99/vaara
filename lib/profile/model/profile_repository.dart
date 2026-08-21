@@ -8,17 +8,17 @@ class ProfileRepository {
   ProfileRepository({required this.db});
 
   Future<ReUser> fetchUser(int userId) async {
-    final snap = await db.child("Users/$userId").get();
+    final snap = await db.child("users/$userId").get();
     return ReUser.fromMap(snap.value as Map<String, dynamic>);
   }
 
   Future<void> updateUser(ReUser user) async {
-    await db.child("Users/${user.userId}").update(user.toJson());
+    await db.child("users/${user.userId}").update(user.toJson());
   }
 
   Future<List<ReUser>> fetchUsersByFirebaseUid(String firebaseUid) async {
     final snap = await db
-        .child("Users")
+        .child("users")
         .orderByChild("firebaseUid")
         .equalTo(firebaseUid)
         .get();

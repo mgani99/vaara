@@ -56,7 +56,7 @@ class RoleSwitcherSheet extends StatelessWidget {
                     session.setActiveOrg(orgId);
 
                     final resolvedRole = await roleResolver.resolveRole(
-                      userId: session.userId!,
+                      userId: session.user!.userId.toString(),
                       orgId: orgId,
                     );
 

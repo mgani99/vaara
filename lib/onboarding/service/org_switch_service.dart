@@ -17,8 +17,12 @@ class OrgSwitcherService {
   // Load all orgs the user belongs to
   // ------------------------------------------------------------
   Future<List<String>> loadUserOrgs() async {
-    final userId = UserId.fromSession(session.userId).asInt;
-    return orgUserRepo.getUserOrgs(userId);
+    final userId = session.user!.userId.toString();
+
+    final memberships = await orgUserRepo.getMembershipsForUser(userId);
+
+    // Extract orgIds from OrgUser objects
+    return memberships.map((m) => m.orgId).toList();
   }
 
   // ------------------------------------------------------------
@@ -28,9 +32,9 @@ class OrgSwitcherService {
     // 1. Update active org
     session.setActiveOrg(orgId);
 
-    // 2. Resolve correct role for this org
+    // 2. Resolve correct role for this org (string role)
     final resolvedRole = await roleResolver.resolveRole(
-      userId: session.userId!,
+      userId: session.user!.userId.toString(),
       orgId: orgId,
     );
 

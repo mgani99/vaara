@@ -1,78 +1,57 @@
-import 'package:firebase_database/firebase_database.dart';
-import 'package:my_app/session/user_role.dart';
+import 'package:my_app/login/model/org_user_repository.dart';
+
 
 class RoleResolver {
-  final DatabaseReference _orgUsersRef =
-  FirebaseDatabase.instance.ref("OrgUsers");
-
-  // Role priority (highest → lowest)
-  static const List<UserRole> _priority = [
-    UserRole.landlord,
-    UserRole.manager,
-    UserRole.contractor,
-    UserRole.tenant,
+  static const List<String> priority = [
+    'landlord',
+    'manager',
+    'contractor',
+    'tenant',
   ];
 
-  /// Resolve the user's highest-priority role for a given org.
-  /// This method NEVER returns null.
-  Future<UserRole> resolveRole({
-    required String userId,
-    required String orgId,
-  }) async {
-    final snapshot = await _orgUsersRef.child(orgId).child(userId).get();
+  final OrgUserRepository orgUserRepo;
 
-    if (!snapshot.exists) {
-      // Fallback: if user has no org record, default to tenant
-      return UserRole.tenant;
+  RoleResolver({required this.orgUserRepo});
+
+  Future<String> resolveRole({required String orgId, required String userId}) async {
+    final orgUser = await orgUserRepo.getOrgUser(orgId, userId);
+    if (orgUser == null) return 'tenant';
+
+    if (orgUser.defaultRole != null && orgUser.roles[orgUser.defaultRole!] == true) {
+      return orgUser.defaultRole!;
     }
 
-    final data = Map<String, dynamic>.from(snapshot.value as Map);
-
-    // Case 1: Single role stored as "role": "tenant"
-    if (data.containsKey("role")) {
-      final roleString = data["role"]?.toString().toLowerCase();
-      final parsed = _parseRole(roleString);
-      return parsed ?? UserRole.tenant;
+    for (final r in priority) {
+      if (orgUser.roles[r] == true) return r;
     }
 
-    // Case 2: Multi-role structure:
-    // roles: { "tenant": true, "contractor": true }
-    if (data.containsKey("roles")) {
-      final rolesMap = Map<String, dynamic>.from(data["roles"]);
-      final userRoles = rolesMap.entries
-          .where((e) => e.value == true)
-          .map((e) => _parseRole(e.key))
-          .where((r) => r != null)
-          .cast<UserRole>()
-          .toList();
+    return 'tenant';
+  }
 
-      if (userRoles.isEmpty) return UserRole.tenant;
+  Future<Map<String, String>?> chooseBestOrgAndRole(String userId) async {
+    final memberships = await orgUserRepo.getMembershipsForUser(userId);
+    if (memberships.isEmpty) return null;
 
-      // Pick highest priority
-      for (final role in _priority) {
-        if (userRoles.contains(role)) return role;
+    String? bestOrg;
+    String? bestRole;
+    int bestRank = priority.length + 1;
+    int bestUpdatedAt = 0;
+
+    for (final m in memberships) {
+      final role = (m.defaultRole != null && m.roles[m.defaultRole!] == true)
+          ? m.defaultRole!
+          : priority.firstWhere((r) => m.roles[r] == true, orElse: () => 'tenant');
+
+      final rank = priority.indexOf(role);
+      if (rank < bestRank || (rank == bestRank && m.updatedAt > bestUpdatedAt)) {
+        bestRank = rank;
+        bestOrg = m.orgId;
+        bestRole = role;
+        bestUpdatedAt = m.updatedAt;
       }
     }
 
-    // Fallback
-    return UserRole.tenant;
-  }
-
-  /// Convert string → UserRole enum
-  UserRole? _parseRole(String? role) {
-    if (role == null) return null;
-
-    switch (role) {
-      case "landlord":
-        return UserRole.landlord;
-      case "manager":
-        return UserRole.manager;
-      case "contractor":
-        return UserRole.contractor;
-      case "tenant":
-        return UserRole.tenant;
-      default:
-        return null;
-    }
+    if (bestOrg == null || bestRole == null) return null;
+    return {'orgId': bestOrg, 'role': bestRole};
   }
 }

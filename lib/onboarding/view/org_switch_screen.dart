@@ -32,7 +32,7 @@ class _OrgSwitcherScreenState extends State<OrgSwitcherScreen> {
 
     if (state is OrgSwitcherLoaded) {
       final orgIds = state.orgIds;
-
+      print("switch $orgIds");
       return ListView.builder(
         itemCount: orgIds.length,
         itemBuilder: (context, index) {

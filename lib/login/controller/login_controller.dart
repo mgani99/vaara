@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:my_app/login/domain/re_user.dart';
 import 'package:my_app/login/model/user_repository.dart';
 import 'package:my_app/session/app_data.dart';
 
@@ -60,7 +61,7 @@ class LoginController extends ChangeNotifier {
       await userRepo.updateLastLogin(reUser.userId);
 
       // 5. Store full user in session
-      session.setUser(id: reUser.userId.toString(), name: reUser.firstName, email: reUser.email);
+      session.setUser(reUser);
      // session.setActiveOrg(reUser.defaultOrgId);   // if applicable
      // session.setActiveRole(UserRole.landlord);    // or resolved role
 

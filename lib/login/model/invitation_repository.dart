@@ -7,7 +7,7 @@ class InvitationRepository {
   // Get all pending invitations for a given email
   // ------------------------------------------------------------
   Future<List<Map<String, dynamic>>> getInvitationsForEmail(String email) async {
-    final snapshot = await db.child("Invitations").get();
+    final snapshot = await db.child("invitations").get();
     final List<Map<String, dynamic>> invites = [];
 
     for (var child in snapshot.children) {
@@ -31,7 +31,7 @@ class InvitationRepository {
   // Mark invitation as accepted
   // ------------------------------------------------------------
   Future<void> markAccepted(String inviteId) async {
-    await db.child("Invitations/$inviteId").update({
+    await db.child("invitations/$inviteId").update({
       "accepted": true,
       "acceptedAt": DateTime.now().millisecondsSinceEpoch,
     });
@@ -41,7 +41,7 @@ class InvitationRepository {
   // Delete invitation (optional cleanup)
   // ------------------------------------------------------------
   Future<void> deleteInvitation(String inviteId) async {
-    await db.child("Invitations/$inviteId").remove();
+    await db.child("invitations/$inviteId").remove();
   }
 
   // ------------------------------------------------------------
@@ -53,7 +53,7 @@ class InvitationRepository {
     required String role, // landlord | tenant | contractor
     Map<String, dynamic>? metadata,
   }) async {
-    final ref = db.child("Invitations").push();
+    final ref = db.child("invitations").push();
     final inviteId = ref.key!;
     final now = DateTime.now().millisecondsSinceEpoch;
 

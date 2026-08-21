@@ -1,11 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:my_app/onboarding/service/address_lookup_service.dart';
-import 'package:my_app/onboarding/service/landlord_onboarding_service.dart';
 import 'package:my_app/session/app_data.dart';
 import 'package:my_app/route/route_constants.dart';
+
+enum PropertyExperience { newLandlord, experiencedLandlord }
+enum PortfolioSize { oneToThree, fourToTen, moreThanTen }
+enum ManagementStyle { selfManage, propertyManager }
 
 class LandlordOnboardingScreen extends StatefulWidget {
   const LandlordOnboardingScreen({super.key});
@@ -17,53 +18,10 @@ class LandlordOnboardingScreen extends StatefulWidget {
 
 class _LandlordOnboardingScreenState extends State<LandlordOnboardingScreen> {
   final PageController _controller = PageController();
-  int _step = 0;
-  bool _loading = false;
 
-  String? _propertyId;
-  String? _unitId;
-
-  final _propertyName = TextEditingController();
-  final _propertyAddress = TextEditingController();
-  final _unitName = TextEditingController();
-  final _unitRent = TextEditingController();
-  final _tenantEmail = TextEditingController();
-  final _coOwnerEmail = TextEditingController();
-
-  List<AddressResult> _addressSuggestions = [];
-  bool _isSearching = false;
-  Timer? _debounce;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _propertyName.dispose();
-    _propertyAddress.dispose();
-    _unitName.dispose();
-    _unitRent.dispose();
-    _tenantEmail.dispose();
-    _coOwnerEmail.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onAddressChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
-      if (value.trim().isEmpty) {
-        setState(() => _addressSuggestions = []);
-        return;
-      }
-      setState(() => _isSearching = true);
-      try {
-        final service = context.read<AddressLookupService>();
-        final results = await service.search(value);
-        setState(() => _addressSuggestions = results);
-      } finally {
-        setState(() => _isSearching = false);
-      }
-    });
-  }
+  PropertyExperience? _experience;
+  PortfolioSize? _portfolioSize;
+  ManagementStyle? _managementStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -72,15 +30,9 @@ class _LandlordOnboardingScreenState extends State<LandlordOnboardingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Landlord Onboarding"),
+        title: const Text("Welcome, Landlord"),
         backgroundColor: Colors.lightBlue,
         elevation: 0,
-        leading: _step > 0 && _step < 4
-            ? IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _loading ? null : _handleBack,
-        )
-            : null,
       ),
       body: Stack(
         children: [
@@ -92,92 +44,104 @@ class _LandlordOnboardingScreenState extends State<LandlordOnboardingScreen> {
                   controller: _controller,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _page(_step1Property()),
-                    _page(_step2Unit()),
-                    _page(_step3Tenant()),
-                    _page(_step4CoOwner()),
+                    _page(_step1Welcome()),
+                    _page(_step2Experience()),
+                    _page(_step3Portfolio()),
+                    _page(_step4ManagementStyle()),
                     _page(_step5Complete(orgId)),
                   ],
                 ),
               ),
-              _buildFixedControlBar(),
             ],
           ),
-          if (_loading)
-            Container(
-              color: Colors.black26,
-              child: const Center(child: CircularProgressIndicator()),
-            ),
+
+          // FOOTER FIXED TO BOTTOM
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildFooter(),
+          ),
         ],
       ),
+
     );
   }
+  int _currentStep = 0;
 
+  @override
+  void initState() {
+    super.initState();
+
+    _controller.addListener(() {
+      final page = _controller.page;
+      if (page != null && mounted) {
+        setState(() => _currentStep = page.round());
+      }
+    });
+  }
+
+  // HEADER
   Widget _buildHeader() {
-    double progress = (_step + 1) / 5;
-    const titles = ["Property", "Unit", "Tenant", "Co-Owner", "Complete"];
-
     return Column(
-      children: [
+      children: const [
         LinearProgressIndicator(
-          value: progress,
+          value: 0.2,
           minHeight: 6,
-          backgroundColor: Colors.grey.shade200,
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.lightBlue),
+          backgroundColor: Colors.grey,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlue),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: Colors.lightBlue,
-                child: Text("${_step + 1}",
-                    style: const TextStyle(fontSize: 12, color: Colors.white)),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                titles[_step],
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
+        SizedBox(height: 16),
+        Divider(height: 1),
       ],
     );
   }
 
-  Widget _buildFixedControlBar() {
+  // FOOTER
+
+  Widget _buildFooter() {
     return Container(
-      width: double.infinity,
+      width: double.infinity,            // <-- FIX: give width constraints
       color: Colors.white,
       child: SafeArea(
         top: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
+            constraints: const BoxConstraints(maxWidth: 500), // <-- FIX
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
               child: Row(
                 children: [
-                  if (_step > 0 && _step < 4)
-                    TextButton(
-                      onPressed: _loading ? null : _handleBack,
-                      child: const Text("Back"),
-                    ),
+                  TextButton(
+                    onPressed: () {
+                      if (_currentStep > 0) {
+                        _controller.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: const Text("Back"),
+                  ),
                   const Spacer(),
-                  SizedBox(
-                    width: 120,
-                    height: 48,
+                  Expanded(
                     child: ElevatedButton(
-                      onPressed: _loading ? null : _handleContinue,
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(_step == 4 ? "Finish" : "Next"),
+                      onPressed: () {
+                        if (_currentStep < 4) {
+                          _controller.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        } else {
+                          Navigator.pushNamed(
+                            context,
+                            propertyCreationRoute,
+                          );
+                        }
+                      },
+                      child: Text(_currentStep == 4 ? "Add Property" : "Next"),
                     ),
                   ),
                 ],
@@ -188,6 +152,7 @@ class _LandlordOnboardingScreenState extends State<LandlordOnboardingScreen> {
       ),
     );
   }
+
 
   Widget _page(Widget child) {
     return SingleChildScrollView(
@@ -201,137 +166,117 @@ class _LandlordOnboardingScreenState extends State<LandlordOnboardingScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // STEP CONTENT
-  // ------------------------------------------------------------
-  Widget _step1Property() => Column(children: [
-    TextField(
-      controller: _propertyName,
-      decoration: const InputDecoration(labelText: "Property Name"),
-    ),
-    const SizedBox(height: 16),
-    TextField(
-      controller: _propertyAddress,
-      onChanged: _onAddressChanged,
-      decoration: InputDecoration(
-        labelText: "Address",
-        suffixIcon: _isSearching
-            ? const Padding(
-          padding: EdgeInsets.all(12),
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
-            : null,
+  // STEP 1 — Welcome
+  Widget _step1Welcome() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: const [
+      Text(
+        "Welcome to Rental.AI",
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
       ),
-    ),
-    if (_addressSuggestions.isNotEmpty)
-      ..._addressSuggestions.map(
-            (a) => ListTile(
-          title: Text(a.displayName),
-          onTap: () {
-            setState(() {
-              _propertyAddress.text = a.displayName;
-              _addressSuggestions = [];
-            });
-          },
-        ),
+      SizedBox(height: 12),
+      Text(
+        "Let's learn a bit about your rental business so we can tailor your dashboard.",
+        style: TextStyle(fontSize: 16),
       ),
-  ]);
-
-  Widget _step2Unit() => Column(children: [
-    TextField(
-      controller: _unitName,
-      decoration: const InputDecoration(labelText: "Unit Name"),
-    ),
-    const SizedBox(height: 16),
-    TextField(
-      controller: _unitRent,
-      decoration: const InputDecoration(labelText: "Rent"),
-      keyboardType: TextInputType.number,
-    ),
-  ]);
-
-  Widget _step3Tenant() => TextField(
-    controller: _tenantEmail,
-    decoration: const InputDecoration(labelText: "Tenant Email"),
+    ],
   );
 
-  Widget _step4CoOwner() => TextField(
-    controller: _coOwnerEmail,
-    decoration:
-    const InputDecoration(labelText: "Co-Owner Email (Optional)"),
+  // STEP 2 — Experience
+  Widget _step2Experience() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "How experienced are you as a landlord?",
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 16),
+      RadioListTile<PropertyExperience>(
+        title: const Text("I'm new to landlording"),
+        value: PropertyExperience.newLandlord,
+        groupValue: _experience,
+        onChanged: (v) => setState(() => _experience = v),
+      ),
+      RadioListTile<PropertyExperience>(
+        title: const Text("I've been managing rentals for years"),
+        value: PropertyExperience.experiencedLandlord,
+        groupValue: _experience,
+        onChanged: (v) => setState(() => _experience = v),
+      ),
+    ],
   );
 
-  Widget _step5Complete(String id) => Column(children: [
-    const Icon(Icons.check_circle, size: 60, color: Colors.green),
-    const Text("All Set!",
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-    Text("Org ID: $id"),
-  ]);
+  // STEP 3 — Portfolio Size
+  Widget _step3Portfolio() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "How many properties do you own?",
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 16),
+      RadioListTile<PortfolioSize>(
+        title: const Text("1–3 properties"),
+        value: PortfolioSize.oneToThree,
+        groupValue: _portfolioSize,
+        onChanged: (v) => setState(() => _portfolioSize = v),
+      ),
+      RadioListTile<PortfolioSize>(
+        title: const Text("4–10 properties"),
+        value: PortfolioSize.fourToTen,
+        groupValue: _portfolioSize,
+        onChanged: (v) => setState(() => _portfolioSize = v),
+      ),
+      RadioListTile<PortfolioSize>(
+        title: const Text("More than 10"),
+        value: PortfolioSize.moreThanTen,
+        groupValue: _portfolioSize,
+        onChanged: (v) => setState(() => _portfolioSize = v),
+      ),
+    ],
+  );
 
-  // ------------------------------------------------------------
-  // LOGIC
-  // ------------------------------------------------------------
-  Future<void> _handleContinue() async {
-    final onboarding = context.read<LandlordOnboardingService>();
+  // STEP 4 — Management Style
+  Widget _step4ManagementStyle() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "How do you manage your rentals?",
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 16),
+      RadioListTile<ManagementStyle>(
+        title: const Text("I self-manage everything"),
+        value: ManagementStyle.selfManage,
+        groupValue: _managementStyle,
+        onChanged: (v) => setState(() => _managementStyle = v),
+      ),
+      RadioListTile<ManagementStyle>(
+        title: const Text("I work with a property manager"),
+        value: ManagementStyle.propertyManager,
+        groupValue: _managementStyle,
+        onChanged: (v) => setState(() => _managementStyle = v),
+      ),
+    ],
+  );
 
-    try {
-      setState(() => _loading = true);
+  // STEP 5 — Complete
+  Widget _step5Complete(String orgId) => Column(
+    children: [
+      const Icon(Icons.check_circle, size: 60, color: Colors.green),
+      const SizedBox(height: 16),
+      const Text(
+        "You're all set!",
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(height: 8),
+      Text("Org ID: $orgId"),
+      const SizedBox(height: 24),
+      const Text(
+        "Let's add your first property to get started.",
+        style: TextStyle(fontSize: 16),
+      ),
+    ],
+  );
 
-      if (_step == 0) {
-        _propertyId = await onboarding.createProperty(
-          name: _propertyName.text.trim(),
-          address: _propertyAddress.text.trim(),
-          type: "single_family", // default for now
-        );
-      } else if (_step == 1) {
-        _unitId = await onboarding.createUnit(
-          propertyId: _propertyId!,
-          name: _unitName.text.trim(),
-          rent: double.tryParse(_unitRent.text.trim()) ?? 0,
-        );
-      } else if (_step == 2 && _tenantEmail.text.isNotEmpty) {
-        await onboarding.inviteTenant(
-          email: _tenantEmail.text.trim(),
-          propertyId: _propertyId!,
-          unitId: _unitId!,
-        );
-      } else if (_step == 3 && _coOwnerEmail.text.isNotEmpty) {
-        await onboarding.inviteCoOwner(
-          email: _coOwnerEmail.text.trim(),
-        );
-      } else if (_step == 4) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          homeRoute,
-              (r) => false,
-        );
-        return;
-      }
-
-      setState(() {
-        _step++;
-        _controller.animateToPage(
-          _step,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  void _handleBack() {
-    setState(() {
-      _step--;
-      _controller.animateToPage(
-        _step,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    });
-  }
 }

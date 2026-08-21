@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:my_app/onboarding/model/user_profile.dart';
 import 'package:provider/provider.dart';
 
+import 'package:my_app/onboarding/model/user_profile.dart';
 import 'package:my_app/session/app_data.dart';
-
 
 class NewUserPage extends StatefulWidget {
   const NewUserPage({super.key});
@@ -43,9 +42,7 @@ class _NewUserPageState extends State<NewUserPage> {
               ),
               const SizedBox(height: 20),
 
-              // ------------------------------------------------------------
               // FULL NAME
-              // ------------------------------------------------------------
               TextFormField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(
@@ -57,9 +54,7 @@ class _NewUserPageState extends State<NewUserPage> {
               ),
               const SizedBox(height: 16),
 
-              // ------------------------------------------------------------
               // PHONE NUMBER
-              // ------------------------------------------------------------
               TextFormField(
                 controller: phoneCtrl,
                 decoration: const InputDecoration(
@@ -71,9 +66,7 @@ class _NewUserPageState extends State<NewUserPage> {
               ),
               const SizedBox(height: 16),
 
-              // ------------------------------------------------------------
               // BUSINESS NAME (OPTIONAL)
-              // ------------------------------------------------------------
               TextFormField(
                 controller: businessCtrl,
                 decoration: const InputDecoration(
@@ -84,9 +77,7 @@ class _NewUserPageState extends State<NewUserPage> {
 
               const SizedBox(height: 32),
 
-              // ------------------------------------------------------------
               // SAVE BUTTON
-              // ------------------------------------------------------------
               ElevatedButton(
                 onPressed: saving
                     ? null
@@ -96,9 +87,9 @@ class _NewUserPageState extends State<NewUserPage> {
                   setState(() => saving = true);
 
                   final profile = UserProfile(
-                    userId: session.userId!,
+                    userId: session.user!.userId.toString(),
                     name: nameCtrl.text.trim(),
-                    email: session.userEmail ?? "",
+                    email: session.user!.email,
                     phone: phoneCtrl.text.trim(),
                     businessName: businessCtrl.text.trim().isEmpty
                         ? null
@@ -107,19 +98,21 @@ class _NewUserPageState extends State<NewUserPage> {
                     DateTime.now().millisecondsSinceEpoch,
                   );
 
+                  // Save profile to Firebase
                   await FirebaseDatabase.instance
-                      .ref("Users/${profile.userId}")
+                      .ref("users/${profile.userId}")
                       .set(profile.toMap());
 
+                  // Update session user with new name/phone
                   session.setUser(
-                    id: profile.userId,
-                    email: profile.email,
-                    name: profile.name,
+                    session.user!.copyWith(
+                      firstName: profile.name,
+                      phone: profile.phone,
+                    ),
                   );
 
                   setState(() => saving = false);
 
-                  // Move to Step 1 of onboarding
                   Navigator.pushNamed(
                     context,
                     "/onboardingRoleQuestion",

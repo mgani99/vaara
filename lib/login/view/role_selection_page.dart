@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/login/model/user_repository.dart';
 import 'package:provider/provider.dart';
 
 import 'package:my_app/login/model/org_user_repository.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
 import 'package:my_app/route/route_constants.dart';
 
 class RoleSelectionPage extends StatelessWidget {
@@ -13,6 +13,7 @@ class RoleSelectionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<AppSession>();
     final orgUserRepo = context.read<OrgUserRepository>();
+    final prefsRepo = context.read<UserPreferencesRepository>();
 
     return Scaffold(
       appBar: AppBar(
@@ -28,6 +29,9 @@ class RoleSelectionPage extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // ------------------------------------------------------------
+                // LANDLORD
+                // ------------------------------------------------------------
                 _roleButton(
                   context,
                   label: "I'm a Landlord",
@@ -36,14 +40,20 @@ class RoleSelectionPage extends StatelessWidget {
                     final name = await _askForPortfolioName(context, "Portfolio Name");
                     if (name == null || name.isEmpty) return;
 
+                    final userId = session.user!.userId;
+
+                    // Create new org with unique name
                     final orgId = await orgUserRepo.createDefaultOrg(
-                      ownerUserId: int.parse(session.userId!),
-                      orgName: name,
+                      ownerUserId: userId,
+                      orgName: session.user!.firstName.toLowerCase(),
                     );
 
+                    // Save default org
+                    await prefsRepo.setDefaultOrg(userId.toString(), orgId);
+
+                    // Update session
                     session.setActiveOrg(orgId);
-                    session.setActiveRole(UserRole.landlord);
-                    session.setOrgMemberships([orgId]);
+                    session.setActiveRole("landlord");
 
                     Navigator.pushNamed(context, landlordOnboardingRoute);
                   },
@@ -51,6 +61,9 @@ class RoleSelectionPage extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
+                // ------------------------------------------------------------
+                // CONTRACTOR
+                // ------------------------------------------------------------
                 _roleButton(
                   context,
                   label: "I'm a Contractor",
@@ -59,14 +72,17 @@ class RoleSelectionPage extends StatelessWidget {
                     final name = await _askForPortfolioName(context, "Business Name");
                     if (name == null || name.isEmpty) return;
 
+                    final userId = session.user!.userId;
+
                     final orgId = await orgUserRepo.createDefaultOrg(
-                      ownerUserId: int.parse(session.userId!),
-                      orgName: name,
+                      ownerUserId: userId,
+                      orgName: session.user!.firstName.toLowerCase(),
                     );
 
+                    await prefsRepo.setDefaultOrg(userId.toString(), orgId);
+
                     session.setActiveOrg(orgId);
-                    session.setActiveRole(UserRole.contractor);
-                    session.setOrgMemberships([orgId]);
+                    session.setActiveRole("contractor");
 
                     Navigator.pushNamed(context, contractorOnboardingRoute);
                   },
@@ -74,6 +90,9 @@ class RoleSelectionPage extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
+                // ------------------------------------------------------------
+                // TENANT
+                // ------------------------------------------------------------
                 _roleButton(
                   context,
                   label: "I'm a Tenant",

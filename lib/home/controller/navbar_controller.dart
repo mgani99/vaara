@@ -4,8 +4,6 @@ import 'package:my_app/payments/view/payment_list_page.dart';
 import 'package:my_app/profile/view/profile_settings_page.dart';
 import 'package:my_app/property/view/property_dashboard.dart';
 import 'package:my_app/session/app_data.dart';
-import 'package:my_app/session/user_role.dart';
-
 
 class NavBarController extends ChangeNotifier {
   int selectedIndex = 0;
@@ -16,33 +14,55 @@ class NavBarController extends ChangeNotifier {
   }
 
   List<Widget> getPages(AppSession session) {
-    switch (session.activeRole) {
-      case UserRole.landlord:
-        return [
+    final role = session.activeRole;
+
+    if (role == null) {
+      return [const SizedBox()];
+    }
+
+    late final List<Widget> pages;
+
+    switch (role) {
+      case "landlord":
+        pages = [
           const HomeDashboard(),
           const PropertyDashboard(),
           const PaymentListPage(),
           const ProfileSettingsPage(),
         ];
+        break;
 
-      case UserRole.tenant:
-        return [
+      case "tenant":
+        pages = [
           const HomeDashboard(),
           const PaymentListPage(),
           const ProfileSettingsPage(),
         ];
+        break;
 
-      case UserRole.contractor:
-        return [
+      case "contractor":
+        pages = [
           const HomeDashboard(),
-         // const RepairDashboard(),
-          ProfileSettingsPage()        ];
+          // const RepairDashboard(),  // add when ready
+          const ProfileSettingsPage(),
+        ];
+        break;
 
       default:
-        return [
+        pages = [
           const HomeDashboard(),
           const ProfileSettingsPage(),
         ];
+        break;
     }
+
+    // ------------------------------------------------------------
+    // SAFETY: Prevent RangeError
+    // ------------------------------------------------------------
+    if (selectedIndex >= pages.length) {
+      selectedIndex = 0;
+    }
+
+    return pages;
   }
 }

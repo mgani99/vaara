@@ -11,7 +11,7 @@ class ContractorRepository {
     required String phone,
     String? notes,
   }) async {
-    await db.child("Orgs/$orgId/Contractors/$userId").set({
+    await db.child("orgs/$orgId/Contractors/$userId").set({
       "contractorId": userId,
       "businessName": businessName,
       "serviceType": serviceType,
@@ -24,7 +24,7 @@ class ContractorRepository {
 
 
   Future<bool> isContractorForOrg(String userId, String orgId) async {
-  final snap = await db.child("Orgs/$orgId/contractors/$userId").get();
+  final snap = await db.child("orgs/$orgId/contractors/$userId").get();
   return snap.exists;
   }
 

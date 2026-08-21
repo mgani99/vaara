@@ -144,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.pushReplacementNamed(
                                   context, enrollmentRoute);
                             },
-                            child: const Text("Enrol"),
+                            child: const Text("Enroll"),
                           ),
                         ],
                       ),

@@ -23,7 +23,9 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = context.read<AppSession>();
       session.ensureUserLoaded();
+
     });
+
   }
 
   @override
@@ -48,7 +50,7 @@ class _HomePageState extends State<HomePage> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.black54,
-        items: _navItemsForRole(session.activeRole!),
+        items: _navItemsForRole(parseRole(session.activeRole!)),
       ),
     );
   }

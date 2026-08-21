@@ -1,12 +1,12 @@
 
-import 'package:my_app/property/domain/lease_details_model.dart';
+
 import 'package:my_app/property/domain/payment_model.dart';
-import 'package:my_app/property/domain/tenant_model.dart';
-import 'package:my_app/property/domain/unit_model.dart';
 import 'package:my_app/property/service/lease_details_service.dart';
 import 'package:my_app/property/service/payment_service.dart';
 import 'package:my_app/property/service/tenant_service.dart';
 import 'package:my_app/property/service/unit_service.dart';
+
+import '../../property/domain/property_model.dart';
 
 class PaymentListService {
   final PaymentService paymentService;

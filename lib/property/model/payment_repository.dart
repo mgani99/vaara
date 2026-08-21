@@ -8,7 +8,7 @@ class PaymentRepository {
 
   Future<String> createPayment(PaymentModel payment) async {
     final ref = _db
-        .child("Orgs/${payment.orgId}/Payments/${payment.period}")
+        .child("rgs/${payment.orgId}/Payments/${payment.period}")
         .push();
 
     await ref.set(payment.toMap());
@@ -18,7 +18,7 @@ class PaymentRepository {
   Future<List<PaymentModel>> getPaymentsForPeriod(
       String orgId, String period) async {
     final snapshot =
-    await _db.child("Orgs/$orgId/Payments/$period").get();
+    await _db.child("orgs/$orgId/Payments/$period").get();
 
     if (!snapshot.exists) return [];
 
@@ -33,7 +33,7 @@ class PaymentRepository {
     final payments = <PaymentModel>[];
 
     final snapshot =
-    await _db.child("Orgs/$orgId/Payments").get();
+    await _db.child("orgs/$orgId/Payments").get();
 
     if (!snapshot.exists) return [];
 
@@ -61,7 +61,7 @@ class PaymentRepository {
     final startTs = startOfMonth.millisecondsSinceEpoch;
     final endTs = endOfMonth.millisecondsSinceEpoch;
 
-    final snap = await _db.child("Orgs/$orgId/Payments").get();
+    final snap = await _db.child("orgs/$orgId/Payments").get();
     final payments = <Map<String, dynamic>>[];
 
     for (final child in snap.children) {
@@ -95,7 +95,7 @@ class PaymentRepository {
     int limit = 10,
   }) async {
     final snap = await _db
-        .child("Orgs/$orgId/Payments")
+        .child("rgs/$orgId/Payments")
         .orderByChild("timestamp")
         .limitToLast(limit)
         .get();

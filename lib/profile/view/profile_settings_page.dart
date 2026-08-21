@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/login/domain/orgUser.dart';
+import 'package:my_app/route/route_constants.dart';
 import 'package:provider/provider.dart';
 
+
+import 'package:my_app/session/app_data.dart';
 import '../controller/profile_controller.dart';
 import '../../login/domain/re_user.dart';
-
 import '../view/settings_section.dart';
 
 class ProfileSettingsPage extends StatelessWidget {
@@ -12,9 +14,10 @@ class ProfileSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = Provider.of<ProfileController>(context);
+    final session = context.read<AppSession>();
+    final ctrl = context.read<ProfileController>();
 
-    final user = ctrl.currentUser;
+    final user = session.user;
     if (user == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -35,13 +38,11 @@ class ProfileSettingsPage extends StatelessWidget {
           _signOutButton(context, ctrl),
         ],
       ),
-
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _header(user),
           const SizedBox(height: 24),
-
           _securitySection(),
           _personalDetailsSection(context, user),
           _orgSection(context),
@@ -70,9 +71,7 @@ class ProfileSettingsPage extends StatelessWidget {
                 ? const Icon(Icons.person, size: 40, color: Colors.grey)
                 : null,
           ),
-
           const SizedBox(height: 8),
-
           Text(
             "${user.firstName} ${user.lastName}",
             style: const TextStyle(
@@ -81,9 +80,7 @@ class ProfileSettingsPage extends StatelessWidget {
               fontSize: 18,
             ),
           ),
-
           const SizedBox(height: 4),
-
           Text(
             "Last login: ${DateTime.fromMillisecondsSinceEpoch(user.lastLoginAt)}",
             style: TextStyle(
@@ -97,21 +94,20 @@ class ProfileSettingsPage extends StatelessWidget {
   }
 
   // ------------------------------------------------------------
-  // ROLE SWITCHER (OrgUser-based)
+  // ROLE SWITCHER (multi-role OrgUser)
   // ------------------------------------------------------------
   Widget _roleSwitcher(BuildContext context, ProfileController ctrl) {
-    return FutureBuilder<List<OrgUser>>(
-      future: ctrl.loadLinkedUsers(),
+    return FutureBuilder<OrgUser?>(
+      future: ctrl.loadActiveOrgUser(),
       builder: (context, snap) {
         if (!snap.hasData) return const SizedBox();
 
-        final roles = snap.data!;
+        final orgUser = snap.data!;
+        final roles = orgUser.roles.keys.toList();
+
         if (roles.isEmpty) return const SizedBox();
 
-        final defaultRole = roles.firstWhere(
-              (r) => r.isDefaultRole,
-          orElse: () => roles.first,
-        );
+        final selectedRole = orgUser.defaultRole ?? roles.first;
 
         return Container(
           margin: const EdgeInsets.only(right: 12),
@@ -122,20 +118,20 @@ class ProfileSettingsPage extends StatelessWidget {
             border: Border.all(color: Colors.black.withOpacity(0.4)),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<OrgUser>(
-              value: defaultRole,
-              items: roles.map((r) {
+            child: DropdownButton<String>(
+              value: selectedRole,
+              items: roles.map((role) {
                 return DropdownMenuItem(
-                  value: r,
+                  value: role,
                   child: Text(
-                    r.role,
+                    role,
                     style: const TextStyle(fontFamily: 'Roboto'),
                   ),
                 );
               }).toList(),
-              onChanged: (selected) {
-                if (selected != null) {
-                  ctrl.switchRole(selected);
+              onChanged: (newRole) {
+                if (newRole != null) {
+                  //ctrl.(newRole);
                 }
               },
             ),
@@ -148,6 +144,7 @@ class ProfileSettingsPage extends StatelessWidget {
   // ------------------------------------------------------------
   // SIGN OUT BUTTON
   // ------------------------------------------------------------
+
   Widget _signOutButton(BuildContext context, ProfileController ctrl) {
     return Container(
       margin: const EdgeInsets.only(right: 12),
@@ -164,7 +161,24 @@ class ProfileSettingsPage extends StatelessWidget {
         ],
       ),
       child: GestureDetector(
-        onTap: () => ctrl.signOut(context),
+        onTap: () async {
+          final ctrl = context.read<ProfileController>();
+          final session = context.read<AppSession>();
+          session.clear();
+          final ok = await ctrl.signOut();
+
+          if (!context.mounted) return;   // <-- MUST BE HERE
+
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            logInScreenRoute,
+                (route) => false,
+          );
+
+
+
+
+        },
+
         child: Row(
           children: const [
             Icon(Icons.logout, color: Colors.red, size: 20),
@@ -183,6 +197,7 @@ class ProfileSettingsPage extends StatelessWidget {
     );
   }
 
+
   // ------------------------------------------------------------
   // SECTIONS
   // ------------------------------------------------------------
@@ -199,15 +214,15 @@ class ProfileSettingsPage extends StatelessWidget {
   }
 
   Widget _personalDetailsSection(BuildContext context, ReUser user) {
-    return SettingsSection(
+    return const SettingsSection(
       title: "Personal Details",
       icon: Icons.person,
       items: [
         SettingsItem(label: "Phone"),
         SettingsItem(label: "Email"),
         SettingsItem(label: "Address"),
-        const SettingsItem(label: "Connect Plaid®"),
-        const SettingsItem(label: "Social Security ID"),
+        SettingsItem(label: "Connect Plaid®"),
+        SettingsItem(label: "Social Security ID"),
       ],
     );
   }

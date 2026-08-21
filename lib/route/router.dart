@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/property/view/lease_creation_screen.dart';
+import 'package:my_app/property/view/lease_details_screen.dart';
+import 'package:my_app/property/view/multi_family_property_creation.dart';
+import 'package:my_app/property/view/property_details_page.dart';
+import 'package:my_app/property/view/tenant_creation_page.dart';
+import 'package:my_app/property/view/unit_metrics_screen.dart';
 import 'package:provider/provider.dart';
 
 // Session + Core
@@ -32,6 +38,15 @@ import 'package:my_app/onboarding/service/org_switch_service.dart';
 import 'package:my_app/login/view/tenant_invite_screen.dart';
 import 'package:my_app/login/controller/tenant_invite_controller.dart';
 import 'package:my_app/login/service/tenant_invite_service.dart';
+
+// Property Screens
+import 'package:my_app/property/view/property_creation_screen.dart';
+import 'package:my_app/property/view/property_dashboard.dart';
+
+import 'package:my_app/property/view/unit_details_screen.dart';
+import 'package:my_app/property/view/unit_creation_screen.dart';
+
+
 
 // Routes
 import 'package:my_app/route/route_constants.dart';
@@ -87,11 +102,97 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
 
   // ------------------------------------------------------------
+  // PROPERTY SCREENS
+  // ------------------------------------------------------------
+    case propertyCreationRoute:
+      return MaterialPageRoute(builder: (_) => const PropertyCreationScreen());
+
+    case multiFamilyPropertyCreationRoute:
+      return MaterialPageRoute(
+        builder: (_) => const MultiFamilyPropertyCreationScreen(),
+      );
+
+    case propertyDashboardRoute:
+      return MaterialPageRoute(builder: (_) => const PropertyDashboard());
+
+    case propertyDetailsRoute:
+      final args = settings.arguments as Map<String, dynamic>;
+      final propertyId = args["propertyId"] as String;
+      final readOnly = args["readOnly"] as bool? ?? false;
+
+      return MaterialPageRoute(
+        builder: (_) => PropertyDetailsScreen(
+          propertyId: propertyId,
+          readOnly: readOnly,
+        ),
+      );
+
+
+    case unitDetailsRoute:
+      final unitId = settings.arguments as String;
+      return MaterialPageRoute(
+        builder: (_) => UnitDetailsScreen(unitId: unitId),
+      );
+
+    case unitCreationRoute:
+      final unitId = settings.arguments as String;
+
+      return MaterialPageRoute(
+        builder: (_) => UnitCreationScreen(unitId: unitId),
+      );
+
+
+  // ------------------------------------------------------------
+  // LEASE SCREENS
+  // ------------------------------------------------------------
+    case leaseCreationRoute:
+      final args = settings.arguments as Map<String, dynamic>;
+      final unitId = args["unitId"];
+      final propertyId = args["propertyId"];
+      final mode = args["mode"];
+      final leaseId = args["leaseId"];
+
+      return MaterialPageRoute(
+        builder: (_) => LeaseCreationScreen(
+          unitId: unitId,
+          propertyId: propertyId,
+          leaseId: leaseId,
+          mode: mode,
+        ),
+      );
+
+
+
+    case tenantCreationRoute:
+      final args = settings.arguments as Map<String, dynamic>;
+      final tenantId = args["tenantId"];
+      final leaseId = args["leaseId"];
+      final mode = args["mode"];
+
+      return MaterialPageRoute(
+        builder: (_) => TenantCreationPage(tenantId: tenantId,leaseId:leaseId, mode: mode,),
+
+      );
+
+
+
+    case leaseDetailsRoute:
+      final leaseId = settings.arguments as String;
+      return MaterialPageRoute(
+        builder: (_) => LeaseDetailsScreen(leaseId: leaseId),
+      );
+
+
+    case unitMetricsRoute:
+      final unitId = settings.arguments as String;
+      return MaterialPageRoute(
+        builder: (_) => UnitMetricsScreen(unitId: unitId),
+      );
+  // ------------------------------------------------------------
   // TENANT INVITE
   // ------------------------------------------------------------
     case tenantInviteRoute:
       final invite = settings.arguments as Map<String, dynamic>;
-
       return MaterialPageRoute(
         builder: (_) => ChangeNotifierProvider(
           create: (context) => TenantInviteController(
@@ -109,7 +210,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
 
   // ------------------------------------------------------------
-  // HOME + DASHBOARD
+  // HOME
   // ------------------------------------------------------------
     case homeRoute:
       return MaterialPageRoute(builder: (_) => const HomePage());
