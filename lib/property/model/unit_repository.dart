@@ -107,7 +107,11 @@ class UnitRepository {
     await _db.child("orgs/$orgId/Units/$unitId/$field").set(value);
   }
 
-  void updateUnitType(String s, String unitId, String newType) {
+
+
+
+
+  Future<void> clearUnitLease(UnitModel unit) async {
 
   }
 

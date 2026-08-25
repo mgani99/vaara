@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/property/service/unit_service.dart';
 import 'package:my_app/property/view/lease_creation_screen.dart';
 import 'package:my_app/route/route_constants.dart';
 import 'package:provider/provider.dart';
@@ -505,13 +506,83 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18),
+                onSelected: (value) async {
+                  if (value == "End Lease") {
+                    final tenantNames = tenants.isNotEmpty
+                        ? tenants.map((t) => t.name).join(", ")
+                        : "this unit";
+
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("End Lease"),
+                        content: Text(
+                          "Are you sure you want to end the lease for $tenantNames on ${unit!.name}?",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("End Lease"),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm != true) return;
+
+                    final unitService = Provider.of<UnitService>(context, listen: false);
+
+                    await unitService.vacateUnit(unit!, lease!);
+
+                    setState(() {
+                      final updatedUnit = session.unitCache[unit!.unitId];
+                      unit = updatedUnit;
+                      lease = null;
+                      tenants = [];
+                    });
+                  }
+
+                  if (value == "Edit") {
+                    Navigator.pushNamed(
+                      context,
+                      leaseCreationRoute,
+                      arguments: {
+                        "unitId": unit!.unitId,
+                        "propertyId": unit!.propertyId,
+                        "mode": LeasePageMode.readMode,
+                        "leaseId": lease!.leaseId,
+                      },
+                    );
+                  }
+
+                  if (value == "New Lease") {
+                    Navigator.pushNamed(
+                      context,
+                      leaseCreationRoute,
+                      arguments: {
+                        "unitId": unit!.unitId,
+                        "propertyId": unit!.propertyId,
+                        "mode": LeasePageMode.newMode,
+                      },
+                    );
+                  }
+
+                  if (value == "Extend Lease") {
+                    // your extend logic here
+                  }
+                },
                 itemBuilder: (context) => [
                   const PopupMenuItem(value: "Edit", child: Text("Edit")),
                   const PopupMenuItem(value: "New Lease", child: Text("New Lease")),
                   const PopupMenuItem(value: "Extend Lease", child: Text("Extend Lease")),
                   const PopupMenuItem(value: "End Lease", child: Text("End Lease")),
                 ],
-              ),
+              )
+
             ],
           ),
 

@@ -28,6 +28,8 @@ class PropertyDashboard extends StatelessWidget {
     final properties = session.propertyCache.values.toList();
     final units = session.unitCache.values.toList();
     final leases = session.currentLeaseCache;
+    final valuations = session.valuationCache;
+
 
     final Map<String, List<UnitModel>> unitsByProperty = {};
     for (final u in units) {
@@ -41,7 +43,9 @@ class PropertyDashboard extends StatelessWidget {
       final Map<String, LeaseDetailsModel?> unitLeaseMap = {};
 
       for (final u in propertyUnits) {
-        unitLeaseMap[u.unitId] = leases[u.unitId];
+        unitLeaseMap[u.unitId] =
+        (u.currentLeaseId != null) ? leases[u.currentLeaseId] : null;
+
       }
 
       leasesByPropertyUnit[p.propertyId] = unitLeaseMap;
@@ -67,6 +71,13 @@ class PropertyDashboard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  _summaryGrid(
+                    properties,
+                    units,
+                    leasesByPropertyUnit,
+                    session.valuationCache,   // ⭐ NEW
+                    theme,
+                  ),
 
                   const SizedBox(height: 10),
 
@@ -166,7 +177,6 @@ class PropertyDashboard extends StatelessWidget {
     final unit = units.isNotEmpty ? units.first : null;
     final lease = unit != null ? leaseMap[unit.unitId] : null;
 
-    final unitName = unit?.name ?? "Unit";
     final bedrooms = unit?.bedrooms ?? 0;
     final bathrooms = unit?.bathrooms ?? 0.0;
 
@@ -174,57 +184,23 @@ class PropertyDashboard extends StatelessWidget {
     final occupancyText = isOccupied ? "Occupied" : "Vacant";
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ------------------------------------------------------------
-          // HEADER ROW WITH VIEW ICON
-          // ------------------------------------------------------------
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _typeIcon(property.type),
               const SizedBox(width: 12),
-
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(unitName, style: theme.textTheme.titleMedium),
-
-                    const SizedBox(height: 4),
-
-                    // ⭐ Address with location icon
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            property.address!,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      "${property.city}, ${property.state}",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  property.name,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)
                 ),
               ),
-
-              // ⭐ View icon → Property Details (readonly)
               GestureDetector(
                 onTap: () {
                   Navigator.pushNamed(
@@ -236,17 +212,44 @@ class PropertyDashboard extends StatelessWidget {
                     },
                   );
                 },
-                child: const Icon(Icons.visibility,
-                    size: 20, color: Colors.blue),
+                child: const Icon(Icons.visibility, size: 20, color: Colors.blue),
               ),
             ],
           ),
-
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 0),
+                child: Icon(
+                  Icons.location_on,
+                  size: 28,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      property.address!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${property.city}, ${property.state}",
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-
-          // ------------------------------------------------------------
-          // ⭐ CLICKABLE UNIT INFO BOX
-          // ------------------------------------------------------------
           GestureDetector(
             onTap: () {
               Navigator.pushNamed(
@@ -263,7 +266,7 @@ class PropertyDashboard extends StatelessWidget {
                 color: Colors.blue.shade50,
               ),
               child: Text(
-                "1 unit — $occupancyText",
+                "1 unit",
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -273,14 +276,127 @@ class PropertyDashboard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
 
-          // ------------------------------------------------------------
-          // BED/BATH ONLY (rent removed per request)
-          // ------------------------------------------------------------
+
+  Widget _summaryGrid(
+      List<PropertyModel> properties,
+      List<UnitModel> units,
+      Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit,
+      Map<String, PropertyValuationModel?> valuations,
+      ThemeData theme,
+      ) {
+    // ------------------------------------------------------------
+    // 1. TOTAL PROPERTIES
+    // ------------------------------------------------------------
+    final totalProperties = properties.length;
+
+    // ------------------------------------------------------------
+    // 2. TOTAL VALUE (from valuation.currentValue)
+    // ------------------------------------------------------------
+    double totalValue = 0;
+    for (final p in properties) {
+      final val = valuations[p.propertyId];
+      if (val?.currentValue != null) {
+        totalValue += val!.currentValue!;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 3. DISTINCT CITIES & STATES
+    // ------------------------------------------------------------
+    final cities = <String>{};
+    final states = <String>{};
+
+    for (final p in properties) {
+      if (p.city != null && p.city!.trim().isNotEmpty) cities.add(p.city!.trim());
+      if (p.state != null && p.state!.trim().isNotEmpty) states.add(p.state!.trim());
+    }
+
+    // ------------------------------------------------------------
+    // 4. TOTAL UNITS
+    // ------------------------------------------------------------
+    final totalUnits = units.length;
+
+    // ------------------------------------------------------------
+    // 5 & 6. OCCUPIED / VACANT
+    // ------------------------------------------------------------
+    int occupied = 0;
+    int vacant = 0;
+
+    for (final p in properties) {
+      final unitMap = leasesByPropertyUnit[p.propertyId] ?? {};
+      for (final lease in unitMap.values) {
+        if (lease != null) {
+          occupied++;
+        } else {
+          vacant++;
+        }
+      }
+    }
+
+    // ------------------------------------------------------------
+    // UI: TWO ROWS, THREE CARDS EACH
+    // ------------------------------------------------------------
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _summaryCard("Total Properties", "$totalProperties")),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard("Total Value", "\$${totalValue.toStringAsFixed(0)}")),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard("Cities / States", "${cities.length} cities • ${states.length} states")),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _summaryCard("Total Units", "$totalUnits")),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard("Occupied", "$occupied")),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard("Vacant", "$vacant")),
+          ],
+        ),
+      ],
+    );
+  }
+
+
+// ============================================================
+// SUMMARY CARD WIDGET
+// ============================================================
+  Widget _summaryCard(String title, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            "$bedrooms bd / ${bathrooms.toStringAsFixed(1)} ba",
-            style: theme.textTheme.bodyMedium,
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
         ],
       ),
@@ -299,16 +415,18 @@ class PropertyDashboard extends StatelessWidget {
     final occupiedUnits = units.where((u) => leaseMap[u.unitId] != null).length;
     final vacantUnits = totalUnits - occupiedUnits;
 
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ------------------------------------------------------------
-          // HEADER ROW WITH VIEW ICON
-          // ------------------------------------------------------------
+
+          // =============================================================
+          // HEADER ROW (Row 1)
+          // =============================================================
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -316,36 +434,9 @@ class PropertyDashboard extends StatelessWidget {
               const SizedBox(width: 12),
 
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(property.name, style: theme.textTheme.titleMedium),
-
-                    const SizedBox(height: 4),
-
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            property.address!,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      "${property.city}, ${property.state}",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  property.name,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)
                 ),
               ),
 
@@ -360,17 +451,56 @@ class PropertyDashboard extends StatelessWidget {
                     },
                   );
                 },
-                child: const Icon(Icons.visibility,
-                    size: 20, color: Colors.blue),
+                child: const Icon(Icons.visibility, size: 20, color: Colors.blue),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // =============================================================
+          // ADDRESS ROW (Row 2)
+          // =============================================================
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 0),
+                child: Icon(
+                  Icons.location_on,
+                  size: 28,
+                  color: Colors.grey,
+                ),
+              ),
+
+              const SizedBox(width: 6),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      property.address!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${property.city}, ${property.state}",
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
 
           const SizedBox(height: 10),
 
-          // ------------------------------------------------------------
-          // ⭐ CLICKABLE UNIT INFO BOX
-          // ------------------------------------------------------------
+          // =============================================================
+          // UNIT COUNT BOX
+          // =============================================================
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -389,7 +519,7 @@ class PropertyDashboard extends StatelessWidget {
                 color: Colors.blue.shade50,
               ),
               child: Text(
-                "$totalUnits units — tap to view",
+                "$totalUnits units",
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -399,15 +529,7 @@ class PropertyDashboard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 10),
 
-          // ------------------------------------------------------------
-          // OCCUPANCY SUMMARY (rent removed)
-          // ------------------------------------------------------------
-          Text(
-            "$occupiedUnits occupied • $vacantUnits vacant",
-            style: theme.textTheme.bodyMedium,
-          ),
         ],
       ),
     );

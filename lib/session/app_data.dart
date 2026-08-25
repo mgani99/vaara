@@ -35,6 +35,8 @@ class AppSession extends ChangeNotifier {
   final Map<String, UnitModel> _unitCache = {};
   final Map<String, LeaseDetailsModel> _currentLeaseCache = {};
   final Map<String, TenantModel> _tenantCache = {};
+  final Map<String, PropertyValuationModel> _valuationCache = {};
+  Map<String, PropertyValuationModel> get valuationCache => _valuationCache;
 
   // ============================================================
   // REPOSITORIES
@@ -85,11 +87,17 @@ class AppSession extends ChangeNotifier {
   List<PaymentModel> get recentPayments => _recentPayments;
   final List<PaymentModel> _recentPayments = [];
 
+
+
   // ============================================================
   // SETTERS
   // ============================================================
   void setUser(ReUser user) {
     _user = user;
+    notifyListeners();
+  }
+  void updateValuationInCache(PropertyValuationModel valuation) {
+    _valuationCache[valuation.propertyId] = valuation;
     notifyListeners();
   }
 
@@ -142,6 +150,7 @@ class AppSession extends ChangeNotifier {
     _unitCache.clear();
     _currentLeaseCache.clear();
     _tenantCache.clear();
+    _valuationCache.clear();
 
     notifyListeners();
   }
@@ -183,6 +192,15 @@ class AppSession extends ChangeNotifier {
     _tenantCache
       ..clear()
       ..addEntries(tenants.map((t) => MapEntry(t.tenantId, t)));
+
+    // 5. VALUATIONS
+    _valuationCache.clear();
+    for (final p in properties) {
+      final val = await propertyRepo.getValuation(orgId, p.propertyId);
+      if (val != null) {
+        _valuationCache[p.propertyId] = val;
+      }
+    }
 
     notifyListeners();
   }
@@ -266,5 +284,14 @@ class AppSession extends ChangeNotifier {
 
   Future<void> setDefaultOrg(String orgId) async {
     await prefsRepo.setDefaultOrg(_user!.userId.toString(), orgId);
+  }
+
+  void updatePropertyInCache(PropertyModel propertyModel) {
+    _propertyCache[propertyModel.propertyId] = propertyModel;
+    notifyListeners();
+  }
+
+  void noifyListeners() {
+    notifyListeners();
   }
 }

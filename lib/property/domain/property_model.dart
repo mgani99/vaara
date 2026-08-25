@@ -275,7 +275,7 @@ class UnitModel {
       state: state ?? this.state,
       description: description ?? this.description,
 
-      currentLeaseId: currentLeaseId ?? this.currentLeaseId,
+      currentLeaseId: currentLeaseId,
       bedrooms: bedrooms ?? this.bedrooms,
       bathrooms: bathrooms ?? this.bathrooms,
       sqft: sqft ?? this.sqft,
