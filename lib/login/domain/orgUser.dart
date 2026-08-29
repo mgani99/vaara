@@ -27,9 +27,9 @@ class RoleMeta {
 class OrgUser {
   final String orgId;
   final String userId;
-  final Map<String, bool> roles; // e.g. { "landlord": true, "manager": true }
-  final Map<String, RoleMeta> roleMeta; // per-role timestamps
-  final String? defaultRole; // selected default role inside this org
+  final Map<String, bool> roles;
+  final Map<String, RoleMeta> roleMeta;
+  final String? defaultRole;
   final double ownershipPercent;
   final bool isActive;
   final int createdAt;
@@ -41,26 +41,51 @@ class OrgUser {
     required this.roles,
     this.roleMeta = const {},
     this.defaultRole,
-    this.ownershipPercent = 0,
+    this.ownershipPercent = 0.0,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
   });
 
+  // ⭐ FIXED: Correct signature (orgId + userId + map)
   factory OrgUser.fromMap(String orgId, String userId, Map<String, dynamic> map) {
+    // -----------------------------
+    // ROLES
+    // -----------------------------
     final roles = <String, bool>{};
     if (map['roles'] is Map) {
-      (map['roles'] as Map).forEach((k, v) => roles[k.toString()] = v == true);
+      (map['roles'] as Map).forEach((k, v) {
+        roles[k.toString()] = v == true;
+      });
     } else if (map['role'] != null) {
       // legacy single-role support
       roles[map['role'].toString()] = true;
     }
 
+    // -----------------------------
+    // ROLE META
+    // -----------------------------
     final rm = <String, RoleMeta>{};
     if (map['roleMeta'] is Map) {
       (map['roleMeta'] as Map).forEach((k, v) {
         rm[k.toString()] = RoleMeta.fromMap(Map<String, dynamic>.from(v));
       });
+    }
+
+    // -----------------------------
+    // OWNERSHIP PERCENT (SAFE)
+    // -----------------------------
+    final rawPercent = map['ownershipPercent'];
+    double percent;
+
+    if (rawPercent is double) {
+      percent = rawPercent;
+    } else if (rawPercent is int) {
+      percent = rawPercent.toDouble();
+    } else if (rawPercent is String) {
+      percent = double.tryParse(rawPercent) ?? 0.0;
+    } else {
+      percent = 0.0;
     }
 
     return OrgUser(
@@ -69,7 +94,7 @@ class OrgUser {
       roles: roles,
       roleMeta: rm,
       defaultRole: map['defaultRole'],
-      ownershipPercent: (map['ownershipPercent'] ?? 0).toDouble(),
+      ownershipPercent: percent,
       isActive: map['isActive'] ?? true,
       createdAt: map['createdAt'] ?? 0,
       updatedAt: map['updatedAt'] ?? 0,
@@ -110,22 +135,3 @@ class OrgUser {
   }
 }
 
-// lib/domain/org_user_model.dart
-class OrgUserModel {
-  final String userId;
-  final Map<String, bool> roles;
-  final double ownershipPercent;
-
-  OrgUserModel({
-    required this.userId,
-    required this.roles,
-    required this.ownershipPercent,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      "roles": roles,
-      "ownershipPercent": ownershipPercent,
-    };
-  }
-}

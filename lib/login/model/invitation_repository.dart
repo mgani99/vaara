@@ -15,10 +15,12 @@ class InvitationRepository {
 
       if (data["email"] == email && data["accepted"] != true) {
         invites.add({
-          "inviteId": child.key,
+          "inviteId": data["inviteId"],
           "orgId": data["orgId"],
           "email": data["email"],
           "role": data["role"],
+          "accepted": data["accepted"] ?? false,
+          "createdAt": data["createdAt"],
           "metadata": data["metadata"],
         });
       }
@@ -27,6 +29,28 @@ class InvitationRepository {
     return invites;
   }
 
+  Future<List<Map<String, dynamic>>> loadInvitationsForOrg(String orgId) async {
+    final snapshot = await db.child("invitations").get();
+    final List<Map<String, dynamic>> invites = [];
+
+    for (var child in snapshot.children) {
+      final data = child.value as Map<dynamic, dynamic>;
+
+      if (data["orgId"] == orgId) {
+        invites.add({
+          "inviteId": data["inviteId"],
+          "orgId": data["orgId"],
+          "email": data["email"],
+          "role": data["role"],
+          "accepted": data["accepted"] ?? false,
+          "createdAt": data["createdAt"],
+          "metadata": data["metadata"],
+        });
+      }
+    }
+
+    return invites;
+  }
   // ------------------------------------------------------------
   // Mark invitation as accepted
   // ------------------------------------------------------------
@@ -51,6 +75,9 @@ class InvitationRepository {
     required String orgId,
     required String email,
     required String role, // landlord | tenant | contractor
+    String? inviter,
+    String? inviterEmail,
+
     Map<String, dynamic>? metadata,
   }) async {
     final ref = db.child("invitations").push();
@@ -65,6 +92,8 @@ class InvitationRepository {
       "metadata": metadata,
       "accepted": false,
       "createdAt": now,
+      "inviter": inviter,
+      "inviterEmail": inviterEmail,
     });
 
     return inviteId;

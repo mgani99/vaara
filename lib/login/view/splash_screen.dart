@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // ------------------------------------------------------------
     final invites = await inviteRepo.getInvitationsForEmail(reUser.email);
     if (invites.isNotEmpty) {
-      return _goTo(tenantInviteRoute, arguments: invites.first);
+      return _goTo(inviteRoute, arguments: invites);
     }
 
     // ------------------------------------------------------------

@@ -8,7 +8,7 @@ const String homeRoute = "homePage";
 const String splashRoute = "splashRoute";
 const String roleSelectionRoute = "roleSelectionRoute";
 const String landlordOnboardingRoute = "landlordOnboardingRoute";
-const String tenantInviteRoute = "tenantInviteRoute";
+const String inviteRoute = "inviteRoute";
 const String contractorOnboardingRoute = "contractorOnboardingRoute";
 const String orgSwitcherRoute = "orgSwitcherRoute";
 const String propertyDetailsRoute = "propertyDetailsRoute";
@@ -26,5 +26,8 @@ const String paymentDetailsRoute= "paymentDetailsRoute";
 const String multiFamilyPropertyCreationRoute = "multiFamilyPropertyCreationRoute";
 const String unitMetricsRoute = "unitMetricsRoute";
 const String tenantCreationRoute = "tenantCreationRoute";
+const String paymentDashboardRoute = "paymentDashboardRoute";
+const String portfolioDetailsRoute = "portfolioDetailsRoute";
+
 
 

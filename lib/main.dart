@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:my_app/model/property.dart';
+import 'package:my_app/payments/repository/payment_repository.dart';
+import 'package:my_app/payments/service/payment_service.dart';
 import 'package:my_app/portfolio/controller/add_portfolio_controller.dart';
+import 'package:my_app/portfolio/model/portfolio_repository.dart';
 import 'package:my_app/portfolio/service/add_portfolio_service.dart';
 import 'package:my_app/property/controller/property_creation_controller.dart';
 import 'package:my_app/property/model/property_archive_restore_service.dart';
@@ -49,14 +52,13 @@ import 'package:my_app/property/model/property_repository.dart';
 import 'package:my_app/property/model/unit_repository.dart';
 import 'package:my_app/property/model/tenant_repository.dart';
 import 'package:my_app/property/model/lease_details_repository.dart';
-import 'package:my_app/property/model/payment_repository.dart';
 import 'package:my_app/property/model/balance_repository.dart';
 import 'package:my_app/property/model/contractor_repository.dart';
 
 import 'package:my_app/property/service/tenant_service.dart';
 import 'package:my_app/property/service/lease_details_service.dart';
-import 'package:my_app/property/service/payment_service.dart';
 import 'package:my_app/property/service/balanace_service.dart';
+
 
 // NAVBAR
 import 'home/controller/navbar_controller.dart';
@@ -105,6 +107,9 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => PaymentRepository()),
         Provider(create: (_) => BalanceRepository()),
         Provider(create: (_) => PropertyArchiveService(db)),
+        Provider(create: (_) => PortfolioRepository()),
+
+
 
         // PROFILE REPOSITORY
         Provider(create: (_) => ProfileRepository(db: db)),
@@ -131,6 +136,7 @@ class MyApp extends StatelessWidget {
             unitRepo: context.read<UnitRepository>(),
             leaseRepo: context.read<LeaseDetailsRepository>(),
             tenantRepo: context.read<TenantRepository>(),
+            paymentRepo: context.read<PaymentRepository>(),
 
 
 

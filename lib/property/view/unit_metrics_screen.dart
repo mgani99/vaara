@@ -178,11 +178,13 @@ class _UnitMetricsScreenState extends State<UnitMetricsScreen> {
 
     final double? newSqft = double.tryParse(sqftController.text);
 
+
     final updated = unit.copyWith(
       sqft: newSqft,
       bedrooms: bedrooms,
       bathrooms: bathrooms,
     );
+
 
     await unitService.repo.updateUnit(updated);
 

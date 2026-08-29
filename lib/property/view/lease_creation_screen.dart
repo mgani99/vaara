@@ -292,6 +292,10 @@ class _LeaseCreationScreenState extends State<LeaseCreationScreen> {
       );
 
       session.updateLeaseInCache(savedLease);
+      final unit = session.unitCache[widget.unitId];
+      session.updateUnitInCache(
+        unit!.copyWith(currentLeaseId: savedLease.leaseId),
+      );
 
       Navigator.pop(context, "lease_created");
       return;
@@ -312,7 +316,6 @@ class _LeaseCreationScreenState extends State<LeaseCreationScreen> {
 
     await leaseService.repo.updateLease(updatedLease);
     session.updateLeaseInCache(updatedLease);
-
     Navigator.pop(context, "lease_updated");
   }
 

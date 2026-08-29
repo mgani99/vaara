@@ -1,8 +1,9 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:my_app/property/model/lease_details_repository.dart';
-import 'package:my_app/property/model/payment_repository.dart';
 import 'package:my_app/property/model/unit_repository.dart';
 import 'package:my_app/session/app_data.dart';
+
+import '../../payments/repository/payment_repository.dart';
 
 class LandlordDashboardService {
   final AppSession session;

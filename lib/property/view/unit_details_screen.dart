@@ -124,6 +124,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
                   );
 
                   // 🔥 Refresh AFTER returning
+                  await session.loadOrgScopedData();
                   final updatedUnit = session.unitCache[unit!.unitId];
 
                   setState(() {
@@ -188,6 +189,12 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
                       "leaseId": lease!.leaseId,
                     },
                   );
+                  final updatedUnit = session.unitCache[unit!.unitId];
+                  setState(() {
+                    unit = updatedUnit;
+                    final leaseId = updatedUnit!.currentLeaseId;
+                    lease = leaseId != null ? session.currentLeaseCache[leaseId] : null;
+                  });
                 },
                 child: _buildLeaseCard(),
               ),

@@ -5,7 +5,7 @@ import 'package:my_app/login/domain/re_user.dart';
 import 'package:my_app/login/model/user_repository.dart';
 import 'package:my_app/login/service/role_resolver.dart';
 import 'package:my_app/login/model/org_user_repository.dart';
-import 'package:my_app/property/domain/payment_model.dart';
+import 'package:my_app/payments/repository/payment_repository.dart';
 
 import 'package:my_app/property/domain/property_model.dart';
 import 'package:my_app/property/model/property_cache_sync_repository.dart';
@@ -14,6 +14,8 @@ import 'package:my_app/property/model/property_repository.dart';
 import 'package:my_app/property/model/unit_repository.dart';
 import 'package:my_app/property/model/lease_details_repository.dart';
 import 'package:my_app/property/model/tenant_repository.dart';
+
+import '../login/domain/orgUser.dart';
 
 
 
@@ -39,6 +41,25 @@ class AppSession extends ChangeNotifier {
   Map<String, PropertyValuationModel> get valuationCache => _valuationCache;
 
   // ============================================================
+// PAYMENT CACHE
+// ============================================================
+  final Map<String, PaymentModel> _paymentCache = {};
+  Map<String, PaymentModel> get paymentCache => _paymentCache;
+
+  // ============================================================
+// ORG USERS CACHE
+// ============================================================
+  final Map<String, OrgUser> _orgUsersCache = {};
+  Map<String, OrgUser> get orgUsersCache => _orgUsersCache;
+  // ============================================================
+// USER PROFILE CACHE (ReUser)
+// ============================================================
+  final Map<String, ReUser> _userCache = {};
+  Map<String, ReUser> get userCache => _userCache;
+
+
+
+  // ============================================================
   // REPOSITORIES
   // ============================================================
   final RoleResolver roleResolver;
@@ -49,7 +70,7 @@ class AppSession extends ChangeNotifier {
   final UnitRepository unitRepo;
   final LeaseDetailsRepository leaseRepo;
   final TenantRepository tenantRepo;
-
+  final PaymentRepository paymentRepo;
   // ============================================================
   // REALTIME SYNC SERVICE
   // ============================================================
@@ -63,7 +84,8 @@ class AppSession extends ChangeNotifier {
     required this.unitRepo,
     required this.leaseRepo,
     required this.tenantRepo,
-  }) {
+    required this.paymentRepo,}
+  ) {
     cacheSync = CacheSyncService(
       db: FirebaseDatabase.instance,
       session: this,
@@ -88,6 +110,21 @@ class AppSession extends ChangeNotifier {
   final List<PaymentModel> _recentPayments = [];
 
 
+
+  void updateOrgUserInCache(OrgUser orgUser) {
+    _orgUsersCache[orgUser.userId] = orgUser;
+    notifyListeners();
+  }
+
+  void updateOrganizationName(String orgId, String newName) {
+    for (var org in _organizations) {
+      if (org["orgId"] == orgId) {
+        org["name"] = newName;
+        break;
+      }
+    }
+    notifyListeners();
+  }
 
   // ============================================================
   // SETTERS
@@ -151,6 +188,9 @@ class AppSession extends ChangeNotifier {
     _currentLeaseCache.clear();
     _tenantCache.clear();
     _valuationCache.clear();
+    _orgUsersCache.clear();
+    _paymentCache.clear();
+    _userCache.clear();
 
     notifyListeners();
   }
@@ -193,6 +233,20 @@ class AppSession extends ChangeNotifier {
       ..clear()
       ..addEntries(tenants.map((t) => MapEntry(t.tenantId, t)));
 
+    // 5. ORG USERS
+    final orgUsers = await orgUserRepo.getUsersForOrg(orgId);
+    _orgUsersCache
+      ..clear()
+      ..addEntries(orgUsers.map((u) => MapEntry(u.userId, u)));
+
+    // ⭐ 6. USER PROFILES (ReUser)
+    _userCache.clear();
+    for (final orgUser in orgUsers) {
+      final profile = await orgUserRepo.getUserProfile(orgUser.userId);
+      if (profile != null) {
+        _userCache[orgUser.userId] = profile;
+      }
+    }
     // 5. VALUATIONS
     _valuationCache.clear();
     for (final p in properties) {
@@ -201,6 +255,20 @@ class AppSession extends ChangeNotifier {
         _valuationCache[p.propertyId] = val;
       }
     }
+
+    // 6. PAYMENTS
+// ⭐ 6. PAYMENTS — LOAD ONLY CURRENT MONTH (optimized)
+    final now = DateTime.now();
+    final payments = await paymentRepo.fetchPaymentsForMonth(
+      orgId,
+      now.year,
+      now.month,
+    );
+
+    _paymentCache
+      ..clear()
+      ..addEntries(payments.map((p) => MapEntry(p.paymentId, p)));
+
 
     notifyListeners();
   }
@@ -288,6 +356,11 @@ class AppSession extends ChangeNotifier {
 
   void updatePropertyInCache(PropertyModel propertyModel) {
     _propertyCache[propertyModel.propertyId] = propertyModel;
+    notifyListeners();
+  }
+
+  void updatePaymentInCache(PaymentModel payment) {
+    _paymentCache[payment.paymentId] = payment;
     notifyListeners();
   }
 

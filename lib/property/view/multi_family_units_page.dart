@@ -31,98 +31,59 @@ class _MultiFamilyUnitsPageState extends State<MultiFamilyUnitsPage> {
     final expectedUnits = property.numUnits ?? units.length;
 
     return Scaffold(
-      appBar: AppBar(title: Text(property.name)),
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: Text(property.name),
+        elevation: 0,
+      ),
       body: Column(
         children: [
-          _buildPropertyHeader(property, units),
-          const SizedBox(height: 12),
+          _buildHeader(property),
+          const SizedBox(height: 10),
           _buildAddRemoveButtons(units.length, expectedUnits),
-          _buildFilterChips(),
+          _buildFilterChips(units),
           _buildHeaderRow(),
-          Expanded(child: _buildUnitGrid()),
+          Expanded(child: _buildUnitGrid(units)),
+          _buildFooterSummary(units),
         ],
       ),
     );
   }
 
-  // ⭐ HEADER — SUMMARY BOX ONLY
-  Widget _buildPropertyHeader(PropertyModel property, List<UnitModel> units) {
-    final session = context.read<AppSession>();
-    final leases = session.currentLeaseCache;
-
-    final occupied = units.where((u) => u.currentLeaseId != null).length;
-    final vacant = units.length - occupied;
-
-    final bed1 = units.where((u) => (u.bedrooms ?? 0) == 1).length;
-    final bed2 = units.where((u) => (u.bedrooms ?? 0) == 2).length;
-    final bed3plus = units.where((u) => (u.bedrooms ?? 0) >= 3).length;
-
-    final other = units.where((u) =>
-    u.type.toLowerCase() == "garage" ||
-        u.type.toLowerCase() == "parking" ||
-        u.type.toLowerCase() == "parking lot" ||
-        u.type.toLowerCase() == "storage").length;
-
+  // ⭐ SIMPLE HEADER — Property Name + Address
+  Widget _buildHeader(PropertyModel property) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(property.name,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(property.address ?? "",
-              style: const TextStyle(fontSize: 14, color: Colors.black54)),
-          const SizedBox(height: 16),
-
-          // ⭐ SUMMARY GRID
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _summaryBox("Units", units.length.toString()),
-              _summaryBox("Vacant", vacant.toString()),
-              _summaryBox("Occupied", occupied.toString()),
-              _summaryBox("1 Bed", bed1.toString()),
-              _summaryBox("2 Bed", bed2.toString()),
-              _summaryBox("3+ Bed", bed3plus.toString()),
-              _summaryBox("Other", other.toString()),
-            ],
-          ),
+          if (property.address != null) ...[
+            const SizedBox(height: 4),
+            Text(property.address!,
+                style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          ],
         ],
       ),
     );
   }
 
-  Widget _summaryBox(String label, String value) {
-    return Container(
-      width: 110,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          const SizedBox(height: 4),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  // ⭐ Add / Remove Buttons
+  // ⭐ Add / Remove Buttons (unchanged)
   Widget _buildAddRemoveButtons(int actual, int expected) {
     final remainingToAdd = expected - actual;
     final extraToRemove = actual - expected;
@@ -180,7 +141,255 @@ class _MultiFamilyUnitsPageState extends State<MultiFamilyUnitsPage> {
     );
   }
 
-  // ⭐ Remove Unit Sheet
+  // ⭐ Dynamic, Compact Filter Chips — Blue background + count
+  Widget _buildFilterChips(List<UnitModel> units) {
+    final bedCounts = <String, int>{};
+    int otherCount = 0;
+
+    for (final u in units) {
+      final b = u.bedrooms ?? 0;
+      if (b == 1) bedCounts["Bed 1"] = (bedCounts["Bed 1"] ?? 0) + 1;
+      if (b == 2) bedCounts["Bed 2"] = (bedCounts["Bed 2"] ?? 0) + 1;
+      if (b >= 3) bedCounts["Bed 3+"] = (bedCounts["Bed 3+"] ?? 0) + 1;
+
+      if (u.type.toLowerCase() == "garage" ||
+          u.type.toLowerCase() == "parking" ||
+          u.type.toLowerCase() == "parking lot" ||
+          u.type.toLowerCase() == "storage") {
+        otherCount++;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ...bedCounts.entries.map((e) => _chip("${e.key} (${e.value})", bedFilters)),
+          if (otherCount > 0) _chip("Other ($otherCount)", bedFilters),
+          _chip("Vacant", occFilters),
+          _chip("Occupied", occFilters),
+          _chip("All", occFilters),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, Set<String> filterSet) {
+    final selected = filterSet.contains(label);
+
+    return FilterChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: selected ? Colors.white : Colors.black87,
+        ),
+      ),
+      selected: selected,
+      onSelected: (value) {
+        setState(() {
+          if (value) {
+            filterSet.add(label);
+          } else {
+            filterSet.remove(label);
+          }
+        });
+      },
+      selectedColor: Colors.blue.shade600,
+      backgroundColor: Colors.blue.shade50,
+      checkmarkColor: Colors.white,
+    );
+  }
+
+  // ⭐ Header Row — modernized
+  Widget _buildHeaderRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      color: Colors.grey.shade200,
+      child: Row(
+        children: const [
+          Expanded(flex: 5, child: Text("Unit")),
+          Expanded(flex: 4, child: Text("Tenant")),
+          Expanded(flex: 1, child: Text("Rent")),
+          SizedBox(width: 20),
+        ],
+      ),
+    );
+  }
+
+  // ⭐ Modern Unit Grid
+  Widget _buildUnitGrid(List<UnitModel> units) {
+    final session = context.watch<AppSession>();
+    final leases = session.currentLeaseCache;
+
+    return ListView.builder(
+      itemCount: units.length,
+      itemBuilder: (context, index) {
+        final unit = units[index];
+        final lease = unit.currentLeaseId != null
+            ? leases[unit.currentLeaseId]
+            : null;
+
+        final tenantName = lease?.tenantIds.isNotEmpty == true
+            ? session.tenantCache[lease!.tenantIds.first]?.name ?? "No Tenant"
+            : "Vacant";
+
+        final rent = lease?.rentAmount ?? 0.0;
+
+        final bg = index.isEven ? Colors.white : Colors.grey.shade50;
+
+        return InkWell(
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              unitDetailsRoute,
+              arguments: unit.unitId.toString(),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                _unitTypeIcon(unit.type),
+                const SizedBox(width: 8),
+
+                // ⭐ UNIT NAME + BED/BATH STACK
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        unit.name,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      Text(
+                        "${unit.bedrooms ?? 0} bed • ${unit.bathrooms ?? 0} bath",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ⭐ TENANT NAME
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    tenantName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: lease == null ? Colors.red : Colors.black87,
+                      fontWeight: lease == null ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+
+                // ⭐ RENT — FIXED WIDTH FOR $9999
+                SizedBox(
+                  width: 60, // enough for "$9999"
+                  child: Text(
+                    lease == null ? "-" : "\$${rent.toStringAsFixed(0)}",
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: Colors.blue),
+              ],
+            ),
+          ),
+
+        );
+      },
+    );
+  }
+
+  // ⭐ Footer Summary — different colors
+  Widget _buildFooterSummary(List<UnitModel> units) {
+    final session = context.read<AppSession>();
+    final leases = session.currentLeaseCache;
+
+    double totalRent = 0;
+    for (final u in units) {
+      final lease = u.currentLeaseId != null ? leases[u.currentLeaseId] : null;
+      if (lease?.rentAmount != null) {
+        totalRent += lease!.rentAmount!;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            "Total Units: ${units.length}",
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Total Rent: \$${totalRent.toStringAsFixed(0)}",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.blue.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Icon _unitTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case "garage":
+        return const Icon(Icons.garage, color: Colors.black54);
+      case "parking":
+      case "parking lot":
+        return const Icon(Icons.local_parking, color: Colors.black54);
+      default:
+        return const Icon(Icons.apartment, color: Colors.black54);
+    }
+  }
+
+  // ⭐ Remove Unit Sheet (unchanged)
   void _showRemoveUnitSheet() {
     final session = context.read<AppSession>();
     final units = session.unitCache.values
@@ -250,175 +459,6 @@ class _MultiFamilyUnitsPageState extends State<MultiFamilyUnitsPage> {
           ),
         );
       },
-    );
-  }
-
-  // ⭐ Header Row — remove Sq Ft column
-  Widget _buildHeaderRow() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      color: Colors.grey.shade200,
-      child: Row(
-        children: const [
-          Expanded(flex: 3, child: Text("Unit")),
-          Expanded(flex: 3, child: Text("Tenant")),
-          Expanded(flex: 2, child: Text("Rent")),
-          SizedBox(width: 20),
-        ],
-      ),
-    );
-  }
-
-  // ⭐ Unit Grid — remove Sq Ft, show Vacant in red
-  Widget _buildUnitGrid() {
-    final session = context.watch<AppSession>();
-
-    final units = session.unitCache.values
-        .where((u) => u.propertyId == widget.propertyId && u.isDeleted != true)
-        .toList();
-
-    final leases = session.currentLeaseCache;
-
-    return ListView.builder(
-      itemCount: units.length,
-      itemBuilder: (context, index) {
-        final unit = units[index];
-        final lease = unit.currentLeaseId != null
-            ? leases[unit.currentLeaseId]
-            : null;
-
-        final tenantName = lease?.tenantIds.isNotEmpty == true
-            ? session.tenantCache[lease!.tenantIds.first]?.name ?? "No Tenant"
-            : "Vacant";
-
-        final rent = lease?.rentAmount ?? 0.0;
-
-        final bg = index.isEven ? Colors.white : Colors.grey.shade50;
-
-        return InkWell(
-          onTap: () {
-            Navigator.pushNamed(
-              context,
-              unitDetailsRoute,
-              arguments: unit.unitId.toString(),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            margin: const EdgeInsets.only(bottom: 6),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                _unitTypeIcon(unit.type),
-                const SizedBox(width: 8),
-
-                Expanded(
-                  flex: 3,
-                  child: Text(unit.name,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                ),
-
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    tenantName,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: lease == null ? Colors.red : Colors.black87,
-                      fontWeight:
-                      lease == null ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    lease == null
-                        ? "-"
-                        : "\$${rent.toStringAsFixed(0)}",
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
-
-                const Icon(Icons.chevron_right, color: Colors.blue),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Icon _unitTypeIcon(String type) {
-    switch (type.toLowerCase()) {
-      case "garage":
-        return const Icon(Icons.garage, color: Colors.black54);
-      case "parking":
-      case "parking lot":
-        return const Icon(Icons.local_parking, color: Colors.black54);
-      default:
-        return const Icon(Icons.apartment, color: Colors.black54);
-    }
-  }
-
-  // ⭐ Filter Chips
-  Widget _buildFilterChips() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _chip("Bed 1", bedFilters),
-          _chip("Bed 2", bedFilters),
-          _chip("Bed 3+", bedFilters),
-          _chip("Other", bedFilters),
-
-          _chip("Vacant", occFilters),
-          _chip("Occupied", occFilters),
-          _chip("All", occFilters),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(String label, Set<String> filterSet) {
-    final selected = filterSet.contains(label);
-
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (value) {
-        setState(() {
-          if (value) {
-            filterSet.add(label);
-          } else {
-            filterSet.remove(label);
-          }
-        });
-      },
-      selectedColor: Colors.blue.shade600,
-      checkmarkColor: Colors.white,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.black87,
-        fontWeight: FontWeight.w600,
-      ),
     );
   }
 }

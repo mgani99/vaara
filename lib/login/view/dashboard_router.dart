@@ -4,11 +4,12 @@ import 'package:provider/provider.dart';
 
 import 'package:my_app/property/controller/landlord_dashboard_controller.dart';
 import 'package:my_app/property/model/lease_details_repository.dart';
-import 'package:my_app/property/model/payment_repository.dart';
 import 'package:my_app/property/model/unit_repository.dart';
 import 'package:my_app/property/service/ladlord_dashboard_service.dart';
 import 'package:my_app/property/view/landlord_dashboard_screen.dart';
 import 'package:my_app/session/app_data.dart';
+
+import '../../payments/repository/payment_repository.dart';
 
 class DashboardRouter extends StatelessWidget {
   const DashboardRouter({super.key});

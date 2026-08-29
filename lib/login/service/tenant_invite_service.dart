@@ -51,7 +51,7 @@ class TenantInviteService {
       roleFromInvite,
     );
 
-    await orgUserRepo.createUserOrgsForTenant(userId!, orgId);
+    await orgUserRepo.createUserOrgs(userId!, orgId);
     // 2. Only tenants get assigned to units
     if (roleFromInvite == "tenant") {
       await unitRepo.assignTenantToUnit(

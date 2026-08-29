@@ -1,20 +1,28 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:my_app/session/app_data.dart';
 import 'package:provider/provider.dart';
 
+import 'package:my_app/session/app_data.dart';
 import 'package:my_app/session/user_role.dart';
 
-import 'package:my_app/property/domain/property_type.dart';
 import 'package:my_app/property/domain/property_model.dart';
-
+import 'package:my_app/property/domain/property_type.dart';
 
 import 'package:my_app/route/route_constants.dart';
-import 'inline_editable_component.dart';
-import 'mf_unit_grid.dart';
 import 'multi_family_units_page.dart';
 
-class PropertyDashboard extends StatelessWidget {
+/// ===============================================================
+/// PROPERTY DASHBOARD — GLOBAL TOGGLE + CARD WRAPPER
+/// ===============================================================
+class PropertyDashboard extends StatefulWidget {
   const PropertyDashboard({super.key});
+
+  @override
+  State<PropertyDashboard> createState() => _PropertyDashboardState();
+}
+
+class _PropertyDashboardState extends State<PropertyDashboard> {
+  bool showFinance = false; // GLOBAL TOGGLE
 
   @override
   Widget build(BuildContext context) {
@@ -30,13 +38,14 @@ class PropertyDashboard extends StatelessWidget {
     final leases = session.currentLeaseCache;
     final valuations = session.valuationCache;
 
-
+    // Group units by property
     final Map<String, List<UnitModel>> unitsByProperty = {};
     for (final u in units) {
       unitsByProperty.putIfAbsent(u.propertyId, () => []);
       unitsByProperty[u.propertyId]!.add(u);
     }
 
+    // Group leases by property + unit
     final Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit = {};
     for (final p in properties) {
       final propertyUnits = unitsByProperty[p.propertyId] ?? [];
@@ -45,7 +54,6 @@ class PropertyDashboard extends StatelessWidget {
       for (final u in propertyUnits) {
         unitLeaseMap[u.unitId] =
         (u.currentLeaseId != null) ? leases[u.currentLeaseId] : null;
-
       }
 
       leasesByPropertyUnit[p.propertyId] = unitLeaseMap;
@@ -53,17 +61,14 @@ class PropertyDashboard extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       body: SafeArea(
         child: Column(
           children: [
-            // ------------------------------------------------------------
-            // SCROLLABLE CONTENT
-            // ------------------------------------------------------------
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
+                  // HEADER
                   Text(
                     "Properties",
                     style: theme.textTheme.headlineSmall?.copyWith(
@@ -71,49 +76,67 @@ class PropertyDashboard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  // ⭐ GLOBAL TOGGLE
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ChoiceChip(
+                        label: const Text("Operations"),
+                        selected: !showFinance,
+                        onSelected: (_) {
+                          setState(() => showFinance = false);
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text("Finance"),
+                        selected: showFinance,
+                        onSelected: (_) {
+                          setState(() => showFinance = true);
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  /// SUMMARY GRID
                   _summaryGrid(
+                    context,
                     properties,
                     units,
                     leasesByPropertyUnit,
-                    session.valuationCache,   // ⭐ NEW
+                    valuations,
                     theme,
                   ),
 
                   const SizedBox(height: 10),
 
+                  /// PROPERTY CARDS
                   ...properties.map((p) {
-                    final units = unitsByProperty[p.propertyId] ?? [];
-                    return p.type == mapPropertyType(PropertyType.sfm)
-                        ? _sfmCard(
+                    final propertyUnits = unitsByProperty[p.propertyId] ?? [];
+                    final leaseMap = leasesByPropertyUnit[p.propertyId]!;
+
+                    return _propertyCard(
                       context,
                       p,
-                      units,
-                      leasesByPropertyUnit[p.propertyId]!,
-                      theme,
-                    )
-                        : _mfCard(
-                      context,
-                      p,
-                      units,
-                      leasesByPropertyUnit[p.propertyId]!,
-                      theme,
+                      propertyUnits,
+                      leaseMap,
+                      showFinance,
                     );
                   }),
                 ],
               ),
             ),
 
-            // ------------------------------------------------------------
-            // FIXED BOTTOM BUTTON
-            // ------------------------------------------------------------
+            /// ADD PROPERTY BUTTON
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50, // ⭐ Same color as "More Lease Details"
-                border: Border(
-                  top: BorderSide(color: Colors.blue.shade200),
-                ),
+                color: Colors.blue.shade50,
+                border: Border(top: BorderSide(color: Colors.blue.shade200)),
               ),
               child: Center(
                 child: GestureDetector(
@@ -121,7 +144,8 @@ class PropertyDashboard extends StatelessWidget {
                     Navigator.pushNamed(context, propertyCreationRoute);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: Colors.blue.shade300),
@@ -142,161 +166,85 @@ class PropertyDashboard extends StatelessWidget {
         ),
       ),
     );
-
   }
 
-  // ============================================================
-  // TYPE ICON (SFM / MF / COMM)
-  // ============================================================
-  Widget _typeIcon(String type) {
-    String label = "SFM";
-    if (type == "multi_family") label = "MF";
-    if (type == "commercial") label = "COMM";
-
-    return CircleAvatar(
-      radius: 14,
-      backgroundColor: Colors.blue.shade50,
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue,
-        ),
-      ),
-    );
-  }
-
-  Widget _sfmCard(
+  /// ===============================================================
+  /// PROPERTY CARD WRAPPER
+  /// ===============================================================
+  Widget _propertyCard(
       BuildContext context,
       PropertyModel property,
       List<UnitModel> units,
       Map<String, LeaseDetailsModel?> leaseMap,
-      ThemeData theme,
+      bool showFinance,
       ) {
-    final unit = units.isNotEmpty ? units.first : null;
-    final lease = unit != null ? leaseMap[unit.unitId] : null;
+    final isSfm = property.type == mapPropertyType(PropertyType.sfm);
+    final totalUnits = units.length;
+    final occupiedUnits =
+        units.where((u) => leaseMap[u.unitId] != null).length;
 
-    final bedrooms = unit?.bedrooms ?? 0;
-    final bathrooms = unit?.bathrooms ?? 0.0;
+    // Accent color
+    final Color accentColor = {
+      "single_family": Colors.green.shade400,
+      "multi_family": Colors.purple.shade400,
+      "commercial": Colors.orange.shade400,
+    }[property.type] ?? Colors.blue.shade400;
 
-    final isOccupied = lease != null;
-    final occupancyText = isOccupied ? "Occupied" : "Vacant";
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _typeIcon(property.type),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  property.name,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(
-                    context,
-                    propertyDetailsRoute,
-                    arguments: {
-                      "propertyId": property.propertyId,
-                      "readOnly": true,
-                    },
-                  );
-                },
-                child: const Icon(Icons.visibility, size: 20, color: Colors.blue),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 0),
-                child: Icon(
-                  Icons.location_on,
-                  size: 28,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      property.address!,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "${property.city}, ${property.state}",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                unitDetailsRoute,
-                arguments: unit!.unitId,
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.blue.shade300),
-                color: Colors.blue.shade50,
-              ),
-              child: Text(
-                "1 unit",
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
+    return PropertyDashboardCard(
+      showFinance: showFinance,
+      propertyId: property.propertyId,
+      name: property.name,
+      type: property.type,
+      address: property.address,
+      city: property.city,
+      state: property.state,
+      totalUnits: totalUnits,
+      occupiedUnits: occupiedUnits,
+      accentColor: accentColor,
+      onViewProperty: () {
+        Navigator.pushNamed(
+          context,
+          propertyDetailsRoute,
+          arguments: {
+            "propertyId": property.propertyId,
+            "readOnly": true,
+          },
+        );
+      },
+      onOpenUnits: () {
+        if (isSfm) {
+          final unit = units.first;
+          Navigator.pushNamed(
+            context,
+            unitDetailsRoute,
+            arguments: unit.unitId,
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  MultiFamilyUnitsPage(propertyId: property.propertyId),
             ),
-          ),
-
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 
-
+  /// ===============================================================
+  /// SUMMARY GRID (unchanged)
+  /// ===============================================================
   Widget _summaryGrid(
+      context,
       List<PropertyModel> properties,
       List<UnitModel> units,
       Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit,
       Map<String, PropertyValuationModel?> valuations,
       ThemeData theme,
       ) {
-    // ------------------------------------------------------------
-    // 1. TOTAL PROPERTIES
-    // ------------------------------------------------------------
     final totalProperties = properties.length;
 
-    // ------------------------------------------------------------
-    // 2. TOTAL VALUE (from valuation.currentValue)
-    // ------------------------------------------------------------
     double totalValue = 0;
     for (final p in properties) {
       final val = valuations[p.propertyId];
@@ -305,28 +253,24 @@ class PropertyDashboard extends StatelessWidget {
       }
     }
 
-    // ------------------------------------------------------------
-    // 3. DISTINCT CITIES & STATES
-    // ------------------------------------------------------------
-    final cities = <String>{};
-    final states = <String>{};
-
-    for (final p in properties) {
-      if (p.city != null && p.city!.trim().isNotEmpty) cities.add(p.city!.trim());
-      if (p.state != null && p.state!.trim().isNotEmpty) states.add(p.state!.trim());
+    String totalValueFormatted;
+    if (totalValue >= 1000000) {
+      totalValueFormatted = "${(totalValue / 1000000).toStringAsFixed(2)}M";
+    } else {
+      totalValueFormatted = "${(totalValue / 1000).toStringAsFixed(1)}K";
     }
 
-    // ------------------------------------------------------------
-    // 4. TOTAL UNITS
-    // ------------------------------------------------------------
+    final cities = <String>{};
+    for (final p in properties) {
+      if (p.city != null && p.city!.trim().isNotEmpty) {
+        cities.add(p.city!.trim());
+      }
+    }
+
     final totalUnits = units.length;
 
-    // ------------------------------------------------------------
-    // 5 & 6. OCCUPIED / VACANT
-    // ------------------------------------------------------------
     int occupied = 0;
     int vacant = 0;
-
     for (final p in properties) {
       final unitMap = leasesByPropertyUnit[p.propertyId] ?? {};
       for (final lease in unitMap.values) {
@@ -338,156 +282,285 @@ class PropertyDashboard extends StatelessWidget {
       }
     }
 
-    // ------------------------------------------------------------
-    // UI: TWO ROWS, THREE CARDS EACH
-    // ------------------------------------------------------------
     return Column(
       children: [
         Row(
           children: [
-            Expanded(child: _summaryCard("Total Properties", "$totalProperties")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.home,
+                title: "Property Count",
+                value: "$totalProperties",
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard("Total Value", "\$${totalValue.toStringAsFixed(0)}")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.attach_money,
+                title: "Total Value",
+                value: "\$$totalValueFormatted",
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard("Cities / States", "${cities.length} cities • ${states.length} states")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.location_pin,
+                title: "Cities",
+                value: "${cities.length}",
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _summaryCard("Total Units", "$totalUnits")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.apartment,
+                title: "Unit Count",
+                value: "$totalUnits",
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard("Occupied", "$occupied")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.check_circle,
+                title: "Occupied",
+                value: "$occupied",
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard("Vacant", "$vacant")),
+            Expanded(
+              child: _summaryCard(
+                icon: Icons.cancel,
+                title: "Vacant",
+                value: "$vacant",
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-
-// ============================================================
-// SUMMARY CARD WIDGET
-// ============================================================
-  Widget _summaryCard(String title, String value) {
+  Widget _summaryCard({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Icon(icon, size: 16, color: Colors.grey.shade600),
         ],
       ),
     );
   }
+}
+/// ===============================================================
+/// FLIPPABLE PROPERTY CARD — STATEFUL WITH LOCAL FLIP
+/// ===============================================================
+class PropertyDashboardCard extends StatefulWidget {
+  final bool showFinance;
+  final String propertyId;
+  final String name;
+  final String type;
+  final String? address;
+  final String? city;
+  final String? state;
+  final int totalUnits;
+  final int occupiedUnits;
+  final Color accentColor;
+  final VoidCallback onViewProperty;
+  final VoidCallback onOpenUnits;
 
+  const PropertyDashboardCard({
+    super.key,
+    required this.showFinance,
+    required this.propertyId,
+    required this.name,
+    required this.type,
+    required this.address,
+    required this.city,
+    required this.state,
+    required this.totalUnits,
+    required this.occupiedUnits,
+    required this.accentColor,
+    required this.onViewProperty,
+    required this.onOpenUnits,
+  });
 
-  Widget _mfCard(
-      BuildContext context,
-      PropertyModel property,
-      List<UnitModel> units,
-      Map<String, LeaseDetailsModel?> leaseMap,
-      ThemeData theme,
-      ) {
-    final totalUnits = units.length;
-    final occupiedUnits = units.where((u) => leaseMap[u.unitId] != null).length;
-    final vacantUnits = totalUnits - occupiedUnits;
+  @override
+  State<PropertyDashboardCard> createState() => _PropertyDashboardCardState();
+}
 
+class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
+  bool localFlip = false; // ⭐ LOCAL FLIP STATE
+
+  @override
+  Widget build(BuildContext context) {
+    // ⭐ Combined flip logic
+    final showFinance = widget.showFinance || localFlip;
+
+    return GestureDetector(
+      onTap: widget.onViewProperty,   // ⭐ NEW — whole card is clickable
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        transitionBuilder: (child, animation) {
+          final rotate = Tween(begin: pi, end: 0.0).animate(animation);
+
+          return AnimatedBuilder(
+            animation: rotate,
+            builder: (context, _) {
+              final tilt = (rotate.value > pi / 2) ? pi : 0.0;
+
+              return Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateY(rotate.value + tilt),
+                child: child,
+              );
+            },
+          );
+        },
+        child: showFinance
+            ? _financeCard(context, key: const ValueKey(true))
+            : _operationsCard(context, key: const ValueKey(false)),
+      ),
+    );
+
+  }
+
+  // ===============================================================
+  // FRONT SIDE — OPERATIONS VIEW
+  // ===============================================================
+  Widget _operationsCard(BuildContext context, {required Key key}) {
+    final isSfm = widget.type == "single_family";
+    final vacantUnits = widget.totalUnits - widget.occupiedUnits;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      key: key,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // =============================================================
-          // HEADER ROW (Row 1)
-          // =============================================================
+          // HEADER + LOCAL FLIP ICON
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _typeIcon(property.type),
-              const SizedBox(width: 12),
+              _typeIcon(widget.type),
+              const SizedBox(width: 10),
 
               Expanded(
                 child: Text(
-                  property.name,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)
+                  widget.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
 
+              // ⭐ LOCAL FLIP ICON
               GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(
-                    context,
-                    propertyDetailsRoute,
-                    arguments: {
-                      "propertyId": property.propertyId,
-                      "readOnly": true,
-                    },
-                  );
-                },
-                child: const Icon(Icons.visibility, size: 20, color: Colors.blue),
+                onTap: () => setState(() => localFlip = !localFlip),
+                child: Icon(Icons.change_circle_outlined, color: Colors.blue.shade700),
               ),
             ],
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          _addressBlock(),
 
-          // =============================================================
-          // ADDRESS ROW (Row 2)
-          // =============================================================
+          const Divider(height: 14),
+
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 0),
-                child: Icon(
-                  Icons.location_on,
-                  size: 28,
-                  color: Colors.grey,
+              GestureDetector(
+                onTap: widget.onOpenUnits,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.grey.shade200,
+                  ),
+                  child: Text(
+                    isSfm ? "1 unit" : "${widget.totalUnits} units",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
 
-              const SizedBox(width: 6),
+              const Spacer(),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // ⭐ Occupied/vacant styling
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
                   children: [
-                    Text(
-                      property.address!,
-                      style: theme.textTheme.bodyMedium,
+                    TextSpan(
+                      text: "${widget.occupiedUnits} occupied",
+                      style: const TextStyle(color: Colors.grey),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "${property.city}, ${property.state}",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                    const TextSpan(
+                      text: " • ",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    TextSpan(
+                      text: "$vacantUnits vacant",
+                      style: TextStyle(
+                        color: vacantUnits > 0
+                            ? Colors.red.shade700
+                            : Colors.grey,
                       ),
                     ),
                   ],
@@ -495,52 +568,150 @@ class PropertyDashboard extends StatelessWidget {
               ),
             ],
           ),
-
-          const SizedBox(height: 10),
-
-          // =============================================================
-          // UNIT COUNT BOX
-          // =============================================================
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      MultiFamilyUnitsPage(propertyId: property.propertyId),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.blue.shade300),
-                color: Colors.blue.shade50,
-              ),
-              child: Text(
-                "$totalUnits units",
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-          ),
-
-
         ],
       ),
     );
   }
 
+  // ===============================================================
+  // BACK SIDE — FINANCE VIEW
+  // ===============================================================
+  Widget _financeCard(BuildContext context, {required Key key}) {
+    return Container(
+      key: key,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
 
-  BoxDecoration _cardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: Colors.grey.shade300),
-      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // HEADER + LOCAL FLIP ICON
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "${widget.name} — Financials",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+
+              // ⭐ LOCAL FLIP ICON
+              GestureDetector(
+                onTap: () => setState(() => localFlip = !localFlip),
+                child: Icon(
+                  Icons.change_circle_outlined,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          _financeRow("Gross Rent (YTD)", "\$32,400"),
+          _financeRow("Expenses (YTD)", "\$8,900"),
+          _financeRow("Net (YTD)", "\$23,500"),
+
+          const SizedBox(height: 12),
+
+          GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(context, paymentDashboardRoute);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.blue.shade200,
+              ),
+              child: const Text(
+                "Open Rent Roll",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _financeRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 12)),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addressBlock() {
+    return Row(
+      children: [
+        Icon(Icons.location_on, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.address != null)
+                Text(widget.address!, style: const TextStyle(fontSize: 13)),
+              if (widget.city != null && widget.state != null)
+                Text(
+                  "${widget.city}, ${widget.state}",
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _typeIcon(String type) {
+    String label = "SFM";
+    if (type == "multi_family") label = "MF";
+    if (type == "commercial") label = "COMM";
+
+    return CircleAvatar(
+      radius: 13,
+      backgroundColor: Colors.green.shade100,
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

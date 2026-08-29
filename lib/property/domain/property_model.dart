@@ -232,10 +232,7 @@ class UnitModel {
     String? type,
     String? name,
 
-    // OLD
     String? address,
-
-    // NEW
     String? streetAddress,
     String? city,
     String? state,
@@ -266,16 +263,15 @@ class UnitModel {
       type: type ?? this.type,
       name: name ?? this.name,
 
-      // OLD
       address: address ?? this.address,
-
-      // NEW
       streetAddress: streetAddress ?? this.streetAddress,
       city: city ?? this.city,
       state: state ?? this.state,
       description: description ?? this.description,
 
-      currentLeaseId: currentLeaseId,
+      // ⭐ FIXED
+      currentLeaseId: currentLeaseId ?? this.currentLeaseId,
+
       bedrooms: bedrooms ?? this.bedrooms,
       bathrooms: bathrooms ?? this.bathrooms,
       sqft: sqft ?? this.sqft,
@@ -935,6 +931,257 @@ class PropertyInsuranceModel {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+class PaymentModel {
+  final String paymentId;          // Firebase push key
+  final String orgId;              // org scope
+
+  /// Optional linkage (for reporting)
+  final String? propertyId;
+  final String? unitId;
+  final String? tenantId;
+
+  /// debit = money received (rent, late fee, deposit)
+  /// credit = money returned/refunded (refunds, adjustments)
+  final String transactionType;    // "debit" | "credit"
+
+  /// Rent, LateFee, Deposit, Refund, Adjustment, Other
+  final String paymentType;
+
+  /// Amount of the transaction
+  final double amount;
+
+  /// Epoch timestamp (msSinceEpoch)
+  final int paymentDateEpoch;
+
+  /// Optional note
+  final String note;
+
+  /// Status definition:
+  /// active   → normal
+  /// void     → reversed/invalidated
+  /// pending  → awaiting confirmation
+  /// archived → soft-deleted (hidden)
+  /// deleted  → backward compatibility
+  final String status;
+
+  /// Audit fields
+  final int createdAt;
+  final int updatedAt;
+
+  /// Soft delete flag
+  final bool isDeleted;
+  final String? deletedAt;
+
+  PaymentModel({
+    required this.paymentId,
+    required this.orgId,
+    this.propertyId,
+    this.unitId,
+    this.tenantId,
+    required this.transactionType,
+    required this.paymentType,
+    required this.amount,
+    required this.paymentDateEpoch,
+    this.note = "",
+    this.status = "active",
+    required this.createdAt,
+    required this.updatedAt,
+    this.isDeleted = false,
+    this.deletedAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      "paymentId": paymentId,
+      "orgId": orgId,
+      "propertyId": propertyId,
+      "unitId": unitId,
+      "tenantId": tenantId,
+      "transactionType": transactionType,
+      "paymentType": paymentType,
+      "amount": amount,
+      "paymentDateEpoch": paymentDateEpoch,
+      "note": note,
+      "status": status,
+      "createdAt": createdAt,
+      "updatedAt": updatedAt,
+      "isDeleted": isDeleted,
+      "deletedAt": deletedAt,
+    };
+  }
+
+  factory PaymentModel.fromMap(String id, Map<String, dynamic> map) {
+    return PaymentModel(
+      paymentId: id,
+      orgId: map["orgId"] ?? "",
+      propertyId: map["propertyId"],
+      unitId: map["unitId"],
+      tenantId: map["tenantId"],
+      transactionType: map["transactionType"] ?? "debit",
+      paymentType: map["paymentType"] ?? "Rent",
+      amount: (map["amount"] ?? 0).toDouble(),
+      paymentDateEpoch: map["paymentDateEpoch"] ?? 0,
+      note: map["note"] ?? "",
+      status: map["status"] ?? "active",
+      createdAt: map["createdAt"] ?? 0,
+      updatedAt: map["updatedAt"] ?? 0,
+      isDeleted: map["isDeleted"] == true,
+      deletedAt: map["deletedAt"],
+    );
+  }
+
+  PaymentModel copyWith({
+    String? paymentId,
+    String? orgId,
+    String? propertyId,
+    String? unitId,
+    String? tenantId,
+    String? transactionType,
+    String? paymentType,
+    double? amount,
+    int? paymentDateEpoch,
+    String? note,
+    String? status,
+    int? createdAt,
+    int? updatedAt,
+    bool? isDeleted,
+    String? deletedAt,
+  }) {
+    return PaymentModel(
+      paymentId: paymentId ?? this.paymentId,
+      orgId: orgId ?? this.orgId,
+      propertyId: propertyId ?? this.propertyId,
+      unitId: unitId ?? this.unitId,
+      tenantId: tenantId ?? this.tenantId,
+      transactionType: transactionType ?? this.transactionType,
+      paymentType: paymentType ?? this.paymentType,
+      amount: amount ?? this.amount,
+      paymentDateEpoch: paymentDateEpoch ?? this.paymentDateEpoch,
+      note: note ?? this.note,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+}
+
+class PortfolioModel {
+  final String portfolioId;
+  final String orgId;
+
+  /// Portfolio name (required)
+  final String name;
+
+  /// Multiline description
+  final String description;
+
+  /// Optional type (e.g., "residential", "mixed", "commercial")
+  final String? type;
+
+  /// Access list: userId → accessLevel (admin, manager, viewer)
+  final Map<String, String> access;
+
+  /// Linked bank accounts (Plaid)
+  final List<String> bankAccounts;
+
+  /// active | deleted | archived
+  final String status;
+
+  final bool isDeleted;
+  final String? deletedAt;
+
+  final int createdAt;
+  final int updatedAt;
+
+  PortfolioModel({
+    required this.portfolioId,
+    required this.orgId,
+    required this.name,
+    required this.description,
+    this.type,
+    this.access = const {},
+    this.bankAccounts = const [],
+    this.status = "active",
+    this.isDeleted = false,
+    this.deletedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      "portfolioId": portfolioId,
+      "orgId": orgId,
+      "name": name,
+      "description": description,
+      "type": type,
+      "access": access,
+      "bankAccounts": bankAccounts,
+      "status": status,
+      "isDeleted": isDeleted,
+      "deletedAt": deletedAt,
+      "createdAt": createdAt,
+      "updatedAt": updatedAt,
+    };
+  }
+
+  factory PortfolioModel.fromMap(String id, Map<String, dynamic> map) {
+    return PortfolioModel(
+      portfolioId: id,
+      orgId: map["orgId"] ?? "",
+      name: map["name"] ?? "",
+      description: map["description"] ?? "",
+      type: map["type"],
+      access: Map<String, String>.from(map["access"] ?? {}),
+      bankAccounts: List<String>.from(map["bankAccounts"] ?? []),
+      status: map["status"] ?? "active",
+      isDeleted: map["isDeleted"] == true,
+      deletedAt: map["deletedAt"],
+      createdAt: map["createdAt"] ?? 0,
+      updatedAt: map["updatedAt"] ?? 0,
+    );
+  }
+
+  PortfolioModel copyWith({
+    String? portfolioId,
+    String? orgId,
+    String? name,
+    String? description,
+    String? type,
+    Map<String, String>? access,
+    List<String>? bankAccounts,
+    String? status,
+    bool? isDeleted,
+    String? deletedAt,
+    int? createdAt,
+    int? updatedAt,
+  }) {
+    return PortfolioModel(
+      portfolioId: portfolioId ?? this.portfolioId,
+      orgId: orgId ?? this.orgId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      type: type ?? this.type,
+
+      // ⭐ FIXED
+      access: access ?? Map<String, String>.from(this.access),
+      bankAccounts: bankAccounts ?? List<String>.from(this.bankAccounts),
+
+      status: status ?? this.status,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+
+      createdAt: createdAt ?? this.createdAt,
+
+      // ⭐ Auto-update timestamp
+      updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
 }
 
 

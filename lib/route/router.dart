@@ -35,7 +35,7 @@ import 'package:my_app/onboarding/controller/org_switch_controller.dart';
 import 'package:my_app/onboarding/service/org_switch_service.dart';
 
 // Tenant Invite
-import 'package:my_app/login/view/tenant_invite_screen.dart';
+import 'package:my_app/login/view/unified_invite_screen.dart';
 import 'package:my_app/login/controller/tenant_invite_controller.dart';
 import 'package:my_app/login/service/tenant_invite_service.dart';
 
@@ -50,6 +50,9 @@ import 'package:my_app/property/view/unit_creation_screen.dart';
 
 // Routes
 import 'package:my_app/route/route_constants.dart';
+
+import '../payments/view/payment_detail_page.dart' show PaymentDetailPage;
+import '../portfolio/view/portfolio_details.dart';
 
 Route<dynamic> generateRoute(RouteSettings settings) {
   switch (settings.name) {
@@ -115,6 +118,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case propertyDashboardRoute:
       return MaterialPageRoute(builder: (_) => const PropertyDashboard());
 
+    case paymentDashboardRoute:
+      return MaterialPageRoute(builder: (_) => const PropertyDashboard());
+
     case propertyDetailsRoute:
       final args = settings.arguments as Map<String, dynamic>;
       final propertyId = args["propertyId"] as String;
@@ -127,6 +133,16 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ),
       );
 
+    case paymentDetailsRoute:
+      final args = settings.arguments as Map<String, dynamic>;
+
+      return MaterialPageRoute(
+        builder: (_) => PaymentDetailPage(
+          unitId: args["unitId"],
+          tenantId: args["tenantId"],
+          navigationDate: args["navigationDate"],
+        ),
+      );
 
     case unitDetailsRoute:
       final unitId = settings.arguments as String;
@@ -183,6 +199,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
 
 
+    case portfolioDetailsRoute:
+      final orgId = settings.arguments as String;
+      return MaterialPageRoute(
+        builder: (_) => PortfolioDetailsScreen(portfolioId: orgId),
+      );
+
     case unitMetricsRoute:
       final unitId = settings.arguments as String;
       return MaterialPageRoute(
@@ -191,22 +213,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   // ------------------------------------------------------------
   // TENANT INVITE
   // ------------------------------------------------------------
-    case tenantInviteRoute:
-      final invite = settings.arguments as Map<String, dynamic>;
+    case inviteRoute:
+      final invite = settings.arguments as List<Map<String, dynamic>>;
       return MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(
-          create: (context) => TenantInviteController(
-            service: TenantInviteService(
-              session: context.read<AppSession>(),
-              inviteRepo: context.read<InvitationRepository>(),
-              orgUserRepo: context.read<OrgUserRepository>(),
-              unitRepo: context.read<UnitRepository>(),
-              propertyRepo: context.read<PropertyRepository>(),
-              roleResolver: context.read<RoleResolver>(),
-            ),
-          ),
-          child: TenantInviteScreen(invite: invite),
-        ),
+        builder: (_) => UnifiedInviteScreen(invites: invite),
+
       );
 
   // ------------------------------------------------------------

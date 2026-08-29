@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:my_app/session/app_data.dart';
 import 'package:my_app/portfolio/view/add_portfolio_page.dart';
-
+import '../../portfolio/model/portfolio_repository.dart';
 import '../../route/route_constants.dart';
 
 class HomeDashboard extends StatelessWidget {
@@ -31,18 +31,12 @@ class HomeDashboard extends StatelessWidget {
     final occupiedUnits = leases.length;
     final propertyCount = properties.length;
 
-    final totalRent = units.fold<double>(0.0, (sum, u) => sum + (300));
+    final totalRent = units.fold<double>(0.0, (sum, u) => sum + 300);
     final collectedRent =
     leases.fold<double>(0.0, (sum, l) => sum + (l.rentAmount ?? 0.0));
 
-    final occupancyPercent =
-    totalUnits == 0 ? 0.0 : (occupiedUnits / totalUnits).clamp(0.0, 1.0);
-
-    final rentPercent =
-    totalRent == 0 ? 0.0 : (collectedRent / totalRent).clamp(0.0, 1.0);
-
     // ------------------------------------------------------------
-    // ATTENTION NEEDED
+    // ATTENTION NEEDED (limit 5)
     // ------------------------------------------------------------
     final attentionItems = [
       ...units.where((u) => session.currentLeaseCache[u.unitId] == null)
@@ -54,11 +48,6 @@ class HomeDashboard extends StatelessWidget {
         return parsed.isBefore(DateTime.now().add(const Duration(days: 30)));
       }).map((l) => "Lease expiring soon: ${l.unitId}"),
     ].take(5).toList();
-
-    // ------------------------------------------------------------
-    // TOP 5 PROPERTIES (FIRST 5)
-    // ------------------------------------------------------------
-    final topProperties = properties.take(5).toList();
 
     return SafeArea(
       child: Scaffold(
@@ -99,7 +88,7 @@ class HomeDashboard extends StatelessWidget {
             const SizedBox(height: 24),
 
             // ------------------------------------------------------------
-            // PORTFOLIOS (Horizontal Scroll)
+            // PORTFOLIOS (Smaller boxes + settings icon)
             // ------------------------------------------------------------
             Text(
               "Portfolios",
@@ -110,7 +99,7 @@ class HomeDashboard extends StatelessWidget {
             const SizedBox(height: 12),
 
             SizedBox(
-              height: 80,
+              height: 70,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -127,20 +116,20 @@ class HomeDashboard extends StatelessWidget {
                       );
                     },
                     child: Container(
-                      width: 80,
+                      width: 70,
                       margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.blue.shade200),
                       ),
                       child: const Center(
-                        child: Icon(Icons.add, size: 36, color: Colors.blue),
+                        child: Icon(Icons.add, size: 30, color: Colors.blue),
                       ),
                     ),
                   ),
 
-                  // EXISTING PORTFOLIOS (NO PROPERTY COUNT)
+                  // EXISTING PORTFOLIOS
                   ...session.organizations.map((org) {
                     final orgId = org["orgId"];
                     final name = org["name"];
@@ -154,33 +143,72 @@ class HomeDashboard extends StatelessWidget {
                         await session.loadOrgScopedData();
                       },
                       child: Container(
-                        width: 120,
+                        width: 100,
                         margin: const EdgeInsets.only(right: 12),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isSelected ? Colors.blue.shade50 : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSelected ? Colors.blue : Colors.grey.shade300,
-                            width: isSelected ? 2.5 : 1.0,
+                            width: isSelected ? 2 : 1,
                           ),
                         ),
-                        child: Center(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.blue.shade800
-                                  : Colors.black,
+                        child: Stack(
+                          children: [
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? Colors.blue.shade800
+                                      : Colors.black,
+                                ),
+                              ),
                             ),
-                          ),
+
+                            // ⭐ Settings icon → go to Portfolio Details
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    portfolioDetailsRoute,
+                                    arguments: orgId,
+                                  ).then((_) async {
+                                    await session.loadOrgScopedData();
+
+                                    final repo = context.read<PortfolioRepository>();
+                                    final updated = await repo.getPortfolio(orgId);
+
+                                    if (updated != null) {
+                                      session.updateOrganizationName(orgId, updated.name);   // ⭐ FIX
+                                      session.setActiveOrgName(updated.name);                // optional
+                                    }
+                                  });
+
+
+
+                                },
+                                child: Icon(
+                                  Icons.settings,
+                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   }).toList(),
+
                 ],
               ),
             ),
@@ -188,123 +216,47 @@ class HomeDashboard extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ------------------------------------------------------------
-            // PORTFOLIO OVERVIEW (Shaded Box)
+            // PORTFOLIO OVERVIEW — Summary Cards (no graphs)
             // ------------------------------------------------------------
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white60,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Portfolio Overview",
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _tinyKpiCard(title: "Prop#", value: "$propertyCount", icon: Icons.home)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _tinyKpiCard(title: "Units", value: "$totalUnits", icon: Icons.apartment)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _tinyKpiCard(
+                      title: "Occupancy",
+                      value: totalUnits == 0
+                          ? "0%"
+                          : "${(100 - (((totalUnits - occupiedUnits) / totalUnits) * 100)).toStringAsFixed(1)}%",
+                      icon: Icons.percent,
+                    )),
+                  ],
+                ),
 
-                  const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
-                  // PROPERTY + UNIT COUNT
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Properties: $propertyCount",
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      Text(
-                        "Units: $totalUnits",
-                        style: theme.textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // CHARTS ROW
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text("Occupancy",
-                                style: theme.textTheme.titleMedium),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 120,
-                              width: 120,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  CircularProgressIndicator(
-                                    value: occupancyPercent,
-                                    strokeWidth: 10,
-                                    backgroundColor: Colors.grey.shade300,
-                                    color: Colors.green.shade600,
-                                  ),
-                                  Text(
-                                    "${(occupancyPercent * 100).toStringAsFixed(0)}%",
-                                    style: theme.textTheme.titleLarge,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text("$occupiedUnits occupied / $totalUnits units"),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text("Rent Collection",
-                                style: theme.textTheme.titleMedium),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 120,
-                              width: 120,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  CircularProgressIndicator(
-                                    value: rentPercent,
-                                    strokeWidth: 10,
-                                    backgroundColor: Colors.grey.shade300,
-                                    color: Colors.blue.shade600,
-                                  ),
-                                  Text(
-                                    "${(rentPercent * 100).toStringAsFixed(0)}%",
-                                    style: theme.textTheme.titleLarge,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text("Collected: \$${collectedRent.toStringAsFixed(0)}"),
-                            Text(
-                              "Total: \$${totalRent.toStringAsFixed(0)}",
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                Row(
+                  children: [
+                    Expanded(child: _tinyKpiCard(title: "Value", value: "\$3.2M", icon: Icons.attach_money)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _tinyKpiCard(title: "Gross", value: "\$${totalRent.toStringAsFixed(0)}", icon: Icons.trending_up)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _tinyKpiCard(title: "Net", value: "\$${collectedRent.toStringAsFixed(0)}", icon: Icons.account_balance_wallet)),
+                  ],
+                ),
+              ],
             ),
+
+
+
 
             const SizedBox(height: 20),
 
             // ------------------------------------------------------------
-            // ATTENTION NEEDED (Shaded Box)
+            // ATTENTION NEEDED — scrollable, max 5
             // ------------------------------------------------------------
             Container(
               padding: const EdgeInsets.all(20),
@@ -323,103 +275,25 @@ class HomeDashboard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  if (attentionItems.isEmpty)
-                    Text("All good! No issues right now.",
+                  SizedBox(
+                    height: 180, // scrollable height
+                    child: attentionItems.isEmpty
+                        ? Text("All good! No issues right now.",
                         style: theme.textTheme.bodyMedium)
-                  else
-                    ...attentionItems.map((item) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Text(item),
-                      );
-                    }).toList(),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ------------------------------------------------------------
-            // TOP 5 PROPERTIES (Shaded Box)
-            // ------------------------------------------------------------
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white60,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Top Properties",
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  ...topProperties.map((property) {
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            propertyDetailsRoute,
-                            arguments: property.propertyId,
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
+                        : ListView.builder(
+                      itemCount: attentionItems.length,
+                      itemBuilder: (_, i) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                property.name,
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              Text(
-                                "\$${property.totalRent.toStringAsFixed(0)}",
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-
-                  // ADD PROPERTY ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, propertyCreationRoute);
-                    },
-                    child: Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.add, size: 30, color: Colors.blue),
-                      ),
+                          child: Text(attentionItems[i]),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -429,41 +303,57 @@ class HomeDashboard extends StatelessWidget {
             const SizedBox(height: 32),
 
             // ------------------------------------------------------------
-            // QUICK ACTIONS (Only Add Property + Record Payment)
+            // REMOVE: Top Properties
+            // REMOVE: Quick Actions
             // ------------------------------------------------------------
-            Text("Quick Actions", style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
 
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add_home),
-                  label: const Text("Add Property"),
-                  onPressed: () {
-                    Navigator.pushNamed(context, propertyCreationRoute);
-                  },
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.payments),
-                  label: const Text("Record Payment"),
-                  onPressed: () {},
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 32),
-
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, propertyDashboardRoute);
-              },
-              child: const Text("View All Properties"),
-            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _tinyKpiCard({
+    required String title,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Icon(icon, size: 14, color: Colors.grey.shade600),
+        ],
+      ),
+    );
+  }
+
+
 }

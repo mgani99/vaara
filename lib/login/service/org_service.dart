@@ -8,7 +8,7 @@ class OrgService {
 
   Future<String> createOrg({
     required OrgModel org,
-    required OrgUserModel owner,
+    required OrgUser owner,
   }) async {
     final orgRef = _db.child("orgs").push();
     final orgId = orgRef.key!;
@@ -24,4 +24,6 @@ class OrgService {
 
     return orgId;
   }
+
+
 }
