@@ -502,6 +502,10 @@ class LeaseDetailsModel {
 
   final double rentAmount;
 
+  /// ⭐ OPTIONAL — rent due day (1–31)
+  /// If null → fallback to startDateEpoch day
+  final int? rentDueDate;
+
   // ⭐ NEW FIELDS
   final double securityDeposit;
   final String lateFeeType;
@@ -540,6 +544,9 @@ class LeaseDetailsModel {
 
     required this.rentAmount,
 
+    /// ⭐ OPTIONAL FIELD
+    this.rentDueDate,
+
     this.securityDeposit = 0.0,
     this.lateFeeType = "fixed",
     this.lateFeeAmount = 0.0,
@@ -570,6 +577,9 @@ class LeaseDetailsModel {
     int? startDateEpoch,
     int? endDateEpoch,
     double? rentAmount,
+
+    /// ⭐ OPTIONAL FIELD
+    int? rentDueDate,
 
     double? securityDeposit,
     String? lateFeeType,
@@ -602,6 +612,9 @@ class LeaseDetailsModel {
 
       rentAmount: rentAmount ?? this.rentAmount,
 
+      /// ⭐ OPTIONAL FIELD
+      rentDueDate: rentDueDate ?? this.rentDueDate,
+
       securityDeposit: securityDeposit ?? this.securityDeposit,
       lateFeeType: lateFeeType ?? this.lateFeeType,
       lateFeeAmount: lateFeeAmount ?? this.lateFeeAmount,
@@ -622,11 +635,6 @@ class LeaseDetailsModel {
     );
   }
 
-  DateTime parseEpocTime(int epoc) {
-    if (epoc!= null && epoc == 0) return DateTime.now();
-    return DateTime.fromMicrosecondsSinceEpoch(epoc);
-  }
-
   Map<String, dynamic> toMap() {
     return {
       "orgId": orgId,
@@ -635,11 +643,13 @@ class LeaseDetailsModel {
       "tenantIds": tenantIds,
       "tenantRoles": tenantRoles,
 
-      // NEW — epoch timestamps
       "startDateEpoch": startDateEpoch,
       "endDateEpoch": endDateEpoch,
 
       "rentAmount": rentAmount,
+
+      /// ⭐ OPTIONAL FIELD
+      "rentDueDate": rentDueDate,
 
       "securityDeposit": securityDeposit,
       "lateFeeType": lateFeeType,
@@ -663,7 +673,6 @@ class LeaseDetailsModel {
   }
 
   factory LeaseDetailsModel.fromMap(String id, Map<String, dynamic> map) {
-    // Backward compatibility: older leases stored startDate as string
     int parseEpoch(dynamic value) {
       if (value is int) return value;
       if (value is String) {
@@ -676,6 +685,12 @@ class LeaseDetailsModel {
       return DateTime.now().millisecondsSinceEpoch;
     }
 
+    final startEpoch = parseEpoch(map["startDateEpoch"] ?? map["startDate"]);
+
+    /// ⭐ Fallback: if rentDueDate is null → use startDateEpoch day
+    final fallbackDueDate =
+        DateTime.fromMillisecondsSinceEpoch(startEpoch).day;
+
     return LeaseDetailsModel(
       leaseId: id,
       orgId: map["orgId"] ?? "",
@@ -685,10 +700,13 @@ class LeaseDetailsModel {
 
       tenantRoles: Map<String, String>.from(map["tenantRoles"] ?? {}),
 
-      startDateEpoch: parseEpoch(map["startDateEpoch"] ?? map["startDate"]),
+      startDateEpoch: startEpoch,
       endDateEpoch: parseEpoch(map["endDateEpoch"] ?? map["endDate"]),
 
       rentAmount: (map["rentAmount"] ?? 0).toDouble(),
+
+      /// ⭐ OPTIONAL FIELD WITH FALLBACK
+      rentDueDate: map["rentDueDate"] ?? fallbackDueDate,
 
       securityDeposit: (map["securityDeposit"] ?? 0).toDouble(),
       lateFeeType: map["lateFeeType"] ?? "fixed",
@@ -710,6 +728,8 @@ class LeaseDetailsModel {
     );
   }
 }
+
+
 
 class PropertyValuationModel {
   final String valuationId;
@@ -934,41 +954,43 @@ class PropertyInsuranceModel {
 }
 
 class PaymentModel {
-  final String paymentId;          // Firebase push key
-  final String orgId;              // org scope
+  final String paymentId;
+  final String orgId;
 
-  /// Optional linkage (for reporting)
   final String? propertyId;
   final String? unitId;
   final String? tenantId;
 
-  /// debit = money received (rent, late fee, deposit)
-  /// credit = money returned/refunded (refunds, adjustments)
-  final String transactionType;    // "debit" | "credit"
+  /// debit = money received
+  /// credit = charge (rent, late fee, utility, etc.)
+  final String transactionType;
 
-  /// Rent, LateFee, Deposit, Refund, Adjustment, Other
+  /// Rent, LateFee, Utility, Deposit, Refund, Adjustment, Other
   final String paymentType;
 
-  /// Amount of the transaction
   final double amount;
 
-  /// Epoch timestamp (msSinceEpoch)
-  final int paymentDateEpoch;
+  /// BUSINESS DATE — when the charge/payment applies
+  final int effectiveDateEpoch;
+
+  /// ACTUAL DATE — when money was actually received (ACH/cash)
+  final int actualDateEpoch;
+
+  /// SYSTEM DATE — when the entry was created in the system
+  final int recordedAtEpoch;
+
+  /// True if created by rent journal engine
+  final bool isSystemGenerated;
 
   /// Optional note
   final String note;
 
-  /// Status definition:
-  /// active   → normal
-  /// void     → reversed/invalidated
-  /// pending  → awaiting confirmation
-  /// archived → soft-deleted (hidden)
-  /// deleted  → backward compatibility
+  /// active | void | pending | archived | deleted
   final String status;
 
-  /// Audit fields
-  final int createdAt;
-  final int updatedAt;
+  /// Bitemporal validity window
+  final int validFromEpoch;
+  final int? validToEpoch;
 
   /// Soft delete flag
   final bool isDeleted;
@@ -983,11 +1005,14 @@ class PaymentModel {
     required this.transactionType,
     required this.paymentType,
     required this.amount,
-    required this.paymentDateEpoch,
+    required this.effectiveDateEpoch,
+    required this.actualDateEpoch,
+    required this.recordedAtEpoch,
+    required this.isSystemGenerated,
     this.note = "",
     this.status = "active",
-    required this.createdAt,
-    required this.updatedAt,
+    required this.validFromEpoch,
+    this.validToEpoch,
     this.isDeleted = false,
     this.deletedAt,
   });
@@ -1002,11 +1027,14 @@ class PaymentModel {
       "transactionType": transactionType,
       "paymentType": paymentType,
       "amount": amount,
-      "paymentDateEpoch": paymentDateEpoch,
+      "effectiveDateEpoch": effectiveDateEpoch,
+      "actualDateEpoch": actualDateEpoch,
+      "recordedAtEpoch": recordedAtEpoch,
+      "isSystemGenerated": isSystemGenerated,
       "note": note,
       "status": status,
-      "createdAt": createdAt,
-      "updatedAt": updatedAt,
+      "validFromEpoch": validFromEpoch,
+      "validToEpoch": validToEpoch,
       "isDeleted": isDeleted,
       "deletedAt": deletedAt,
     };
@@ -1022,11 +1050,14 @@ class PaymentModel {
       transactionType: map["transactionType"] ?? "debit",
       paymentType: map["paymentType"] ?? "Rent",
       amount: (map["amount"] ?? 0).toDouble(),
-      paymentDateEpoch: map["paymentDateEpoch"] ?? 0,
+      effectiveDateEpoch: map["effectiveDateEpoch"] ?? 0,
+      actualDateEpoch: map["actualDateEpoch"] ?? 0,
+      recordedAtEpoch: map["recordedAtEpoch"] ?? 0,
+      isSystemGenerated: map["isSystemGenerated"] == true,
       note: map["note"] ?? "",
       status: map["status"] ?? "active",
-      createdAt: map["createdAt"] ?? 0,
-      updatedAt: map["updatedAt"] ?? 0,
+      validFromEpoch: map["validFromEpoch"] ?? 0,
+      validToEpoch: map["validToEpoch"],
       isDeleted: map["isDeleted"] == true,
       deletedAt: map["deletedAt"],
     );
@@ -1041,11 +1072,14 @@ class PaymentModel {
     String? transactionType,
     String? paymentType,
     double? amount,
-    int? paymentDateEpoch,
+    int? effectiveDateEpoch,
+    int? actualDateEpoch,
+    int? recordedAtEpoch,
+    bool? isSystemGenerated,
     String? note,
     String? status,
-    int? createdAt,
-    int? updatedAt,
+    int? validFromEpoch,
+    int? validToEpoch,
     bool? isDeleted,
     String? deletedAt,
   }) {
@@ -1058,16 +1092,20 @@ class PaymentModel {
       transactionType: transactionType ?? this.transactionType,
       paymentType: paymentType ?? this.paymentType,
       amount: amount ?? this.amount,
-      paymentDateEpoch: paymentDateEpoch ?? this.paymentDateEpoch,
+      effectiveDateEpoch: effectiveDateEpoch ?? this.effectiveDateEpoch,
+      actualDateEpoch: actualDateEpoch ?? this.actualDateEpoch,
+      recordedAtEpoch: recordedAtEpoch ?? this.recordedAtEpoch,
+      isSystemGenerated: isSystemGenerated ?? this.isSystemGenerated,
       note: note ?? this.note,
       status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      validFromEpoch: validFromEpoch ?? this.validFromEpoch,
+      validToEpoch: validToEpoch ?? this.validToEpoch,
       isDeleted: isDeleted ?? this.isDeleted,
       deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }
+
 
 class PortfolioModel {
   final String portfolioId;
@@ -1184,5 +1222,252 @@ class PortfolioModel {
 
 }
 
+class MonthlyLedgerModel {
+  final String ledgerId;          // e.g. "unitId_tenantId_2026-09"
+  final String orgId;
+  final String unitId;
+  final String tenantId;
 
+  final int year;
+  final int month;
+
+  /// Beginning balance carried from previous month
+  final double beginningBalance;
+
+  /// Total charges (Rent, Late Fee, Utility, Past Due, Damage Fee, Other)
+  final double charges;
+
+  /// Total payments (money received)
+  final double payments;
+
+  /// Total credits (refunds, concessions)
+  final double credits;
+
+  /// Ending balance = beginningBalance + charges - payments - credits
+  final double endingBalance;
+
+  /// Epoch timestamp when this ledger snapshot was generated
+  final int generatedAtEpoch;
+
+  /// Soft delete flags (consistent with other models)
+  final bool isDeleted;
+  final String? deletedAt;
+
+  MonthlyLedgerModel({
+    required this.ledgerId,
+    required this.orgId,
+    required this.unitId,
+    required this.tenantId,
+    required this.year,
+    required this.month,
+    required this.beginningBalance,
+    required this.charges,
+    required this.payments,
+    required this.credits,
+    required this.endingBalance,
+    required this.generatedAtEpoch,
+    this.isDeleted = false,
+    this.deletedAt,
+  });
+
+  // ------------------------------------------------------------
+  // toMap()
+  // ------------------------------------------------------------
+  Map<String, dynamic> toMap() {
+    return {
+      "ledgerId": ledgerId,
+      "orgId": orgId,
+      "unitId": unitId,
+      "tenantId": tenantId,
+      "year": year,
+      "month": month,
+      "beginningBalance": beginningBalance,
+      "charges": charges,
+      "payments": payments,
+      "credits": credits,
+      "endingBalance": endingBalance,
+      "generatedAtEpoch": generatedAtEpoch,
+      "isDeleted": isDeleted,
+      "deletedAt": deletedAt,
+    };
+  }
+
+  // ------------------------------------------------------------
+  // fromMap()
+  // ------------------------------------------------------------
+  factory MonthlyLedgerModel.fromMap(String ledgerId, Map<String, dynamic> map) {
+    double parseDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
+    return MonthlyLedgerModel(
+      ledgerId: ledgerId,
+      orgId: map["orgId"] ?? "",
+      unitId: map["unitId"] ?? "",
+      tenantId: map["tenantId"] ?? "",
+      year: map["year"] ?? 0,
+      month: map["month"] ?? 0,
+      beginningBalance: parseDouble(map["beginningBalance"]),
+      charges: parseDouble(map["charges"]),
+      payments: parseDouble(map["payments"]),
+      credits: parseDouble(map["credits"]),
+      endingBalance: parseDouble(map["endingBalance"]),
+      generatedAtEpoch: map["generatedAtEpoch"] ?? 0,
+      isDeleted: map["isDeleted"] == true,
+      deletedAt: map["deletedAt"],
+    );
+  }
+
+  // ------------------------------------------------------------
+  // copyWith()
+  // ------------------------------------------------------------
+  MonthlyLedgerModel copyWith({
+    String? ledgerId,
+    String? orgId,
+    String? unitId,
+    String? tenantId,
+    int? year,
+    int? month,
+    double? beginningBalance,
+    double? charges,
+    double? payments,
+    double? credits,
+    double? endingBalance,
+    int? generatedAtEpoch,
+    bool? isDeleted,
+    String? deletedAt,
+  }) {
+    return MonthlyLedgerModel(
+      ledgerId: ledgerId ?? this.ledgerId,
+      orgId: orgId ?? this.orgId,
+      unitId: unitId ?? this.unitId,
+      tenantId: tenantId ?? this.tenantId,
+      year: year ?? this.year,
+      month: month ?? this.month,
+      beginningBalance: beginningBalance ?? this.beginningBalance,
+      charges: charges ?? this.charges,
+      payments: payments ?? this.payments,
+      credits: credits ?? this.credits,
+      endingBalance: endingBalance ?? this.endingBalance,
+      generatedAtEpoch: generatedAtEpoch ?? this.generatedAtEpoch,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+}
+
+
+class LinkedBankResult {
+  final String accessToken;
+  final String itemId;
+  final String institutionName;
+  final List<BankAccount> accounts;
+
+  LinkedBankResult({
+    required this.accessToken,
+    required this.itemId,
+    required this.institutionName,
+    required this.accounts,
+  });
+
+  factory LinkedBankResult.fromJson(Map<String, dynamic> json) {
+    return LinkedBankResult(
+      accessToken: json["access_token"] ?? "",
+      itemId: json["item_id"] ?? "",
+      institutionName: json["institution_name"] ?? "",
+      accounts: (json["accounts"] as List<dynamic>? ?? [])
+          .map((a) => BankAccount.fromJson(a))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      "access_token": accessToken,
+      "item_id": itemId,
+      "institution_name": institutionName,
+      "accounts": accounts.map((a) => a.toMap()).toList(),
+    };
+  }
+}
+class BankAccount {
+  final String accountId;     // ⭐ NEW
+  final String name;
+  final String mask;
+  final String type;
+  final String subtype;
+
+  BankAccount({
+    required this.accountId,
+    required this.name,
+    required this.mask,
+    required this.type,
+    required this.subtype,
+  });
+
+  factory BankAccount.fromJson(Map<String, dynamic> json) {
+    return BankAccount(
+      accountId: json["account_id"] ?? "",        // ⭐ NEW
+      name: json["account_name"] ?? "",
+      mask: json["account_mask"] ?? "",
+      type: json["account_type"] ?? "",
+      subtype: json["account_subtype"] ?? "",
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      "account_id": accountId,                    // ⭐ NEW
+      "account_name": name,
+      "account_mask": mask,
+      "account_type": type,
+      "account_subtype": subtype,
+    };
+  }
+}
+class PlaidTransaction {
+  final double amount;
+  final List<String> category;
+  final DateTime date;
+  final String merchantName;
+  final String name;
+  final bool pending;
+  final String type;
+
+  PlaidTransaction({
+    required this.amount,
+    required this.category,
+    required this.date,
+    required this.merchantName,
+    required this.name,
+    required this.pending,
+    required this.type,
+  });
+
+  factory PlaidTransaction.fromMap(Map<String, dynamic> map) {
+    return PlaidTransaction(
+      amount: (map['amount'] ?? 0).toDouble(),
+      category: List<String>.from(map['category'] ?? []),
+      date: DateTime.parse(map['date']),
+      merchantName: map['merchant_name'] ?? '',
+      name: map['name'] ?? '',
+      pending: map['pending'] ?? false,
+      type: map['type'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'amount': amount,
+      'category': category,
+      'date': date.toIso8601String(),
+      'merchant_name': merchantName,
+      'name': name,
+      'pending': pending,
+      'type': type,
+    };
+  }
+}
 

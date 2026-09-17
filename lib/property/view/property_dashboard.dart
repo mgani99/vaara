@@ -24,6 +24,22 @@ class PropertyDashboard extends StatefulWidget {
 class _PropertyDashboardState extends State<PropertyDashboard> {
   bool showFinance = false; // GLOBAL TOGGLE
 
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+  @override
+  void initState() {
+    super.initState();
+
+    _searchController.addListener(() {
+      // rebuild on every keystroke so filteredProperties updates
+      setState(() {});
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final session = context.watch<AppSession>();
@@ -38,6 +54,17 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
     final leases = session.currentLeaseCache;
     final valuations = session.valuationCache;
 
+// ⭐ SEARCH FILTER
+    final filteredProperties = _isSearching
+        ? properties.where((p) {
+      final q = _searchController.text.toLowerCase();
+      return p.name.toLowerCase().contains(q) ||
+          (p.city ?? "").toLowerCase().contains(q) ||
+          (p.address ?? "").toLowerCase().contains(q);
+    }).toList()
+        : properties;
+
+
     // Group units by property
     final Map<String, List<UnitModel>> unitsByProperty = {};
     for (final u in units) {
@@ -46,8 +73,9 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
     }
 
     // Group leases by property + unit
-    final Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit = {};
-    for (final p in properties) {
+    final Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit = {
+    };
+    for (final p in filteredProperties) {
       final propertyUnits = unitsByProperty[p.propertyId] ?? [];
       final Map<String, LeaseDetailsModel?> unitLeaseMap = {};
 
@@ -61,6 +89,11 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
+
+
+
+
+
       body: SafeArea(
         child: Column(
           children: [
@@ -69,37 +102,107 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   // HEADER
-                  Text(
-                    "Properties",
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // ⭐ GLOBAL TOGGLE
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      ChoiceChip(
-                        label: const Text("Operations"),
-                        selected: !showFinance,
-                        onSelected: (_) {
-                          setState(() => showFinance = false);
+                      // ⭐ LEFT SIDE — TITLE OR SEARCH BAR
+                      Expanded(
+                        child: _isSearching
+                            ? TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          decoration: const InputDecoration(
+                            hintText: "Search properties...",
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        )
+                            : Text(
+                          "Property Dashboard",
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      // ⭐ SEARCH ICON
+                      IconButton(
+                        icon: Icon(
+                          _isSearching ? Icons.clear : Icons.search,
+                          size: 22,
+                          color: Colors.blue.shade700,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            if (_isSearching) {
+                              _searchController.clear();
+                            }
+                            _isSearching = !_isSearching;
+                          });
                         },
                       ),
-                      const SizedBox(width: 10),
-                      ChoiceChip(
-                        label: const Text("Finance"),
-                        selected: showFinance,
-                        onSelected: (_) {
-                          setState(() => showFinance = true);
+
+                      // ⭐ 3-DOT MENU
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, color: Colors.blue.shade700),
+                        onSelected: (value) {
+                          if (value == "add") {
+                            Navigator.pushNamed(context, propertyCreationRoute);
+                          } else if (value == "remove") {
+                            // You can wire this to your delete flow
+                          }
                         },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: "add",
+                            child: Text("Add Property"),
+                          ),
+                          const PopupMenuItem(
+                            value: "remove",
+                            child: Text("Remove Property"),
+                          ),
+                        ],
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+              const SizedBox(height: 16),
+
+
+
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ToggleButtons(
+                        isSelected: [!showFinance, showFinance],
+                        onPressed: (index) {
+                          setState(() => showFinance = index == 1);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        borderColor: Colors.grey.shade400,
+                        selectedBorderColor: Colors.blue.shade600,
+                        fillColor: Colors.blue.shade50,
+                        selectedColor: Colors.blue.shade700,
+                        color: Colors.black54,
+                        constraints: const BoxConstraints(
+                          minHeight: 28,   // ⭐ slightly bigger per your earlier request
+                          minWidth: 32,
+                        ),
+                        children: [
+                          Icon(Icons.add_home_work_sharp, size: 18),   // ⭐ bigger icons
+                          Icon(Icons.attach_money, size: 18),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+
 
                   /// SUMMARY GRID
                   _summaryGrid(
@@ -114,7 +217,7 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
                   const SizedBox(height: 10),
 
                   /// PROPERTY CARDS
-                  ...properties.map((p) {
+                  ...filteredProperties.map((p) {
                     final propertyUnits = unitsByProperty[p.propertyId] ?? [];
                     final leaseMap = leasesByPropertyUnit[p.propertyId]!;
 
@@ -130,40 +233,10 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
               ),
             ),
 
-            /// ADD PROPERTY BUTTON
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                border: Border(top: BorderSide(color: Colors.blue.shade200)),
-              ),
-              child: Center(
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, propertyCreationRoute);
-                  },
-                  child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.blue.shade300),
-                    ),
-                    child: Text(
-                      "Add Property",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
           ],
         ),
+
       ),
     );
   }
@@ -171,17 +244,17 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
   /// ===============================================================
   /// PROPERTY CARD WRAPPER
   /// ===============================================================
-  Widget _propertyCard(
-      BuildContext context,
+  Widget _propertyCard(BuildContext context,
       PropertyModel property,
       List<UnitModel> units,
       Map<String, LeaseDetailsModel?> leaseMap,
-      bool showFinance,
-      ) {
+      bool showFinance,) {
     final isSfm = property.type == mapPropertyType(PropertyType.sfm);
     final totalUnits = units.length;
     final occupiedUnits =
-        units.where((u) => leaseMap[u.unitId] != null).length;
+        units
+            .where((u) => leaseMap[u.unitId] != null)
+            .length;
 
     // Accent color
     final Color accentColor = {
@@ -235,14 +308,12 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
   /// ===============================================================
   /// SUMMARY GRID (unchanged)
   /// ===============================================================
-  Widget _summaryGrid(
-      context,
+  Widget _summaryGrid(context,
       List<PropertyModel> properties,
       List<UnitModel> units,
       Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit,
       Map<String, PropertyValuationModel?> valuations,
-      ThemeData theme,
-      ) {
+      ThemeData theme,) {
     final totalProperties = properties.length;
 
     double totalValue = 0;
@@ -289,11 +360,11 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
             Expanded(
               child: _summaryCard(
                 icon: Icons.home,
-                title: "Property Count",
+                title: "Property #",
                 value: "$totalProperties",
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             Expanded(
               child: _summaryCard(
                 icon: Icons.attach_money,
@@ -301,7 +372,7 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
                 value: "\$$totalValueFormatted",
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             Expanded(
               child: _summaryCard(
                 icon: Icons.location_pin,
@@ -311,7 +382,7 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
@@ -321,7 +392,7 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
                 value: "$totalUnits",
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             Expanded(
               child: _summaryCard(
                 icon: Icons.check_circle,
@@ -329,7 +400,7 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
                 value: "$occupied",
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             Expanded(
               child: _summaryCard(
                 icon: Icons.cancel,
@@ -349,39 +420,43 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
     required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             value,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 13, // was 12
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 2),
+
           Text(
             title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 11, // was 10
               color: Colors.black54,
               fontWeight: FontWeight.w500,
             ),
           ),
+
           const SizedBox(height: 2),
-          Icon(icon, size: 16, color: Colors.grey.shade600),
+          Icon(icon, size: 14, color: Colors.grey.shade600),
         ],
       ),
     );
   }
 }
-/// ===============================================================
+  /// ===============================================================
 /// FLIPPABLE PROPERTY CARD — STATEFUL WITH LOCAL FLIP
 /// ===============================================================
 class PropertyDashboardCard extends StatefulWidget {
@@ -427,7 +502,7 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
     final showFinance = widget.showFinance || localFlip;
 
     return GestureDetector(
-      onTap: widget.onViewProperty,   // ⭐ NEW — whole card is clickable
+      onTap: widget.onOpenUnits,   // ⭐ NEW — whole card is clickable
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
         transitionBuilder: (child, animation) {
@@ -468,7 +543,8 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+        border: Border.all(color: Colors.grey.shade300),
+
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
         boxShadow: [
@@ -490,23 +566,41 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
               const SizedBox(width: 10),
 
               Expanded(
-                child: Text(
-                  widget.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w500,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,   // ⭐ ensures whole row is clickable
+                  onTap: widget.onViewProperty,            // ⭐ name + icon both open details
+                  child: Row(
+                    children: [
+                      Text(
+                        widget.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // ⭐ Details icon (bigger)
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,                           // ⭐ increased from 16
+                        color: Colors.blue.shade700,
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-              // ⭐ LOCAL FLIP ICON
+
+
               GestureDetector(
                 onTap: () => setState(() => localFlip = !localFlip),
                 child: Icon(Icons.change_circle_outlined, color: Colors.blue.shade700),
               ),
             ],
           ),
+
 
           const SizedBox(height: 8),
           _addressBlock(),
@@ -515,52 +609,48 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
 
           Row(
             children: [
-              GestureDetector(
-                onTap: widget.onOpenUnits,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.grey.shade200,
-                  ),
-                  child: Text(
-                    isSfm ? "1 unit" : "${widget.totalUnits} units",
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.blue.shade200),
+                  color: Colors.transparent, // remove blue background
+                ),
+                child: Text(
+                  isSfm ? "1 unit" : "${widget.totalUnits} units",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
                 ),
               ),
 
+
               const Spacer(),
 
-              // ⭐ Occupied/vacant styling
               RichText(
                 text: TextSpan(
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    //fontWeight: FontWeight.w600,
                     color: Colors.grey,
                   ),
                   children: [
                     TextSpan(
                       text: "${widget.occupiedUnits} occupied",
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.black87),
                     ),
                     const TextSpan(
                       text: " • ",
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: Colors.black87),
                     ),
                     TextSpan(
                       text: "$vacantUnits vacant",
                       style: TextStyle(
                         color: vacantUnits > 0
                             ? Colors.red.shade700
-                            : Colors.grey,
+                            : Colors.black87,
                       ),
                     ),
                   ],
@@ -582,7 +672,8 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+        border: Border.all(color: Colors.grey.shade300),
+
         color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(6),
         boxShadow: [

@@ -28,6 +28,7 @@ const String unitMetricsRoute = "unitMetricsRoute";
 const String tenantCreationRoute = "tenantCreationRoute";
 const String paymentDashboardRoute = "paymentDashboardRoute";
 const String portfolioDetailsRoute = "portfolioDetailsRoute";
+const String bankTransactionRoute = "bankTransactionRoute";
 
 
 

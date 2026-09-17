@@ -509,7 +509,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
             children: [
               const Text(
                 "Lease",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18),
@@ -603,7 +603,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
               const Text(
                 "Lease Type",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.black87,
                 ),
@@ -611,7 +611,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
               Text(
                 lease!.leaseType ?? "Yearly",
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   //fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -632,12 +632,12 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
             children: [
               const Text(
                 "Expires in",
-                style: TextStyle(fontSize: 12, color: Colors.black87),
+                style: TextStyle(fontSize: 14, color: Colors.black87),
               ),
               Text(
                 _remainingDisplay(),
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   //fontWeight: FontWeight.w600,
                   color: _expiryColor(), // 🔥 changed from dynamic color
                 ),
@@ -656,11 +656,12 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("Rent",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87)),
+                  style: TextStyle(fontSize: 14
+                      , fontWeight: FontWeight.w500, color: Colors.black87)),
               Text(
                 "\$${lease!.rentAmount.toStringAsFixed(0)}",
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.green,
                 ),
@@ -679,11 +680,11 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("Deposit",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
               Text(
                 "\$${lease!.securityDeposit.toStringAsFixed(0)}",
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.green,
                 ),
@@ -744,7 +745,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
         child: const Text(
           "Tenants",
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
@@ -789,7 +790,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
               const Text(
                 "Tenants",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -1077,7 +1078,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
               child: Text(
                 role,
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500,color: Colors.black87),
+                    fontSize: 14, fontWeight: FontWeight.w500,color: Colors.black87),
               ),
             ),
 
@@ -1087,7 +1088,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
                 fullName,
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500,color: Colors.black87),
+                    fontSize: 14, fontWeight: FontWeight.w500,color: Colors.black87),
               ),
             ),
 
@@ -1171,7 +1172,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
         ),
       ],
     );

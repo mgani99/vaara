@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/banktransaction/view/transaction_view_page.dart';
 import 'package:my_app/property/view/lease_creation_screen.dart';
 import 'package:my_app/property/view/lease_details_screen.dart';
 import 'package:my_app/property/view/multi_family_property_creation.dart';
@@ -219,6 +220,15 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => UnifiedInviteScreen(invites: invite),
 
       );
+
+    case bankTransactionRoute:
+      final args = settings.arguments as Map<String, dynamic>;
+      return MaterialPageRoute(
+        builder: (_) => TransactionViewPage(
+        institutionName: args["institutionName"],
+        accountId: args["accountId"],
+        ),
+    );
 
   // ------------------------------------------------------------
   // HOME

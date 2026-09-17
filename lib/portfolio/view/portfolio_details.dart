@@ -1,13 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
+import 'package:flutter/material.dart';
+import 'package:my_app/portfolio/model/linked_bank_repository.dart';
+import 'package:provider/provider.dart';
+import 'dart:async';
 import 'package:my_app/session/app_data.dart';
 import 'package:my_app/session/user_role.dart';
 
 import '../../login/model/invitation_repository.dart';
 import '../../login/model/org_user_repository.dart';
 import '../../property/domain/property_model.dart';
+import '../../route/route_constants.dart';
 import '../model/portfolio_repository.dart';
+import 'package:plaid_flutter/plaid_flutter.dart';
+import '../../utils/plaid_service.dart';
+
 
 
 class PortfolioDetailsScreen extends StatefulWidget {
@@ -20,6 +26,14 @@ class PortfolioDetailsScreen extends StatefulWidget {
 }
 
 class _PortfolioDetailsScreenState extends State<PortfolioDetailsScreen> {
+  LinkTokenConfiguration? _plaidConfig;
+  bool _plaidLoading = false;
+
+  StreamSubscription<LinkEvent>? _plaidEvent;
+  StreamSubscription<LinkExit>? _plaidExit;
+  StreamSubscription<LinkSuccess>? _plaidSuccess;
+  StreamSubscription<LinkOnLoad>? _plaidLoad;
+
   PortfolioModel? portfolio;
   bool isLoading = true;
   bool isReadOnly = true;
@@ -39,8 +53,21 @@ class _PortfolioDetailsScreenState extends State<PortfolioDetailsScreen> {
   void initState() {
     super.initState();
     _load();
+
+    _plaidEvent = PlaidLink.onEvent.listen(_onPlaidEvent);
+    _plaidExit = PlaidLink.onExit.listen(_onPlaidExit);
+    _plaidSuccess = PlaidLink.onSuccess.listen(_onPlaidSuccess);
+    _plaidLoad = PlaidLink.onLoad.listen(_onPlaidLoad);
   }
 
+  @override
+  void dispose() {
+    _plaidEvent?.cancel();
+    _plaidExit?.cancel();
+    _plaidSuccess?.cancel();
+    _plaidLoad?.cancel();
+    super.dispose();
+  }
   Future<void> _load() async {
     final session = context.read<AppSession>();
     final repo = context.read<PortfolioRepository>();
@@ -56,6 +83,13 @@ class _PortfolioDetailsScreenState extends State<PortfolioDetailsScreen> {
       return;
     }
 
+    Future<Map<String, List<BankAccount>>> _loadOrgBanks() async {
+      final session = context.read<AppSession>();
+      final repo = context.read<LinkedBankRepository>();
+
+      return await repo.getAllOrgBanks(session.activeOrgId!);
+    }
+
     portfolio = result;
 
     nameCtrl = TextEditingController(text: portfolio!.name);
@@ -67,6 +101,79 @@ class _PortfolioDetailsScreenState extends State<PortfolioDetailsScreen> {
   Future<List<Map<String, dynamic>>> _loadInvitations(AppSession session) async {
     final repo = context.read<InvitationRepository>();
     return repo.loadInvitationsForOrg(session.activeOrgId!);
+  }
+  Future<void> _startPlaidFlow() async {
+    final session = context.read<AppSession>();
+    final orgId = session.activeOrgId!;
+    final userId = session.user!.userId.toString();
+    final bankName = "primary_bank"; // or derive from portfolio
+
+    setState(() => _plaidLoading = true);
+
+    final linkToken = await PlaidService.createLinkToken(
+      orgId: orgId,
+      userId: userId,
+      bankName: bankName,
+    );
+
+    if (linkToken == null) {
+      setState(() => _plaidLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to create link token")),
+      );
+      return;
+    }
+
+    final config = LinkTokenConfiguration(token: linkToken);
+    await PlaidLink.create(configuration: config);
+
+    setState(() {
+      _plaidConfig = config;
+      _plaidLoading = false;
+    });
+
+    await PlaidLink.open();
+  }
+
+  void _onPlaidSuccess(LinkSuccess event) async {
+    final session = context.read<AppSession>();
+    final orgId = session.activeOrgId!;
+    final userId = session.user!.userId.toString();
+    final bankName = "primary_bank";
+
+    final publicToken = event.publicToken;
+
+    final ok = await PlaidService.exchangePublicToken(
+      publicToken: publicToken,
+      orgId: orgId,
+      userId: userId,
+      bankName: bankName,
+    );
+
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Bank linked successfully")),
+      );
+
+      // TODO: reload portfolio.bankAccounts from Firebase if you store them there
+      setState(() {});
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to save bank link")),
+      );
+    }
+  }
+
+  void _onPlaidEvent(LinkEvent event) {
+    debugPrint("Plaid event: ${event.name}, metadata: ${event.metadata.description()}");
+  }
+
+  void _onPlaidExit(LinkExit event) {
+    debugPrint("Plaid exit: ${event.error?.description()}");
+  }
+
+  void _onPlaidLoad(LinkOnLoad event) {
+    debugPrint("Plaid loaded");
   }
 
   Future<void> _save() async {
@@ -613,51 +720,346 @@ class _PortfolioDetailsScreenState extends State<PortfolioDetailsScreen> {
       const SnackBar(content: Text("Invitation sent")),
     );
   }
+  Future<double?> _loadDailyBalance({
+    required String institutionName,
+    required String mask,
+    required String acct_id,
+  }) async {
+    final session = context.read<AppSession>();
+    final repo = context.read<LinkedBankRepository>();
+
+    final today = DateTime.now();
+    final yyyymmdd =
+        "${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}";
+    final userId = await repo.findUserIdForAccount(orgId: session.activeOrgId!,
+        institutionName: institutionName, acctId: acct_id);
+    return await repo.getDailyBalance(
+      orgId: session.activeOrgId!,
+      userId: userId!,
+      institutionName: institutionName,
+      mask: mask,
+      acct_id: acct_id,
+      dateKey: yyyymmdd,
+    );
+  }
+
+  Future<Map<String, List<BankAccount>>> _loadOrgBanks() async {
+    final session = context.read<AppSession>();
+    final repo = context.read<LinkedBankRepository>();
+
+    return await repo.getAllOrgBanks(session.activeOrgId!);
+  }
+
+  Future<double> _refreshBalance({
+    required String institutionName,
+    required String mask,
+    required String acctId
+  }) async {
+    final session = context.read<AppSession>();
+    final orgId = session.activeOrgId!;
+    final userId = session.user!.userId.toString();
+
+
+    // 1. Call backend to get balance from Plaid
+    final result = await PlaidService.getBalance(
+      orgId: orgId,
+      userId: userId,
+      institutionName: institutionName,
+      acctId: acctId,
+      mask: mask,
+    );
+    print(result);
+
+    // ⭐ Handle backend error
+    if (result["error"] != null) {
+      final errorMsg = result["error"].toString();
+
+      // Show error to user for 5 seconds
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Balance refresh failed: $errorMsg"),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+
+      throw errorMsg; // ⭐ propagate error upward
+    }
+
+    // ⭐ Extract balance
+    final balance = result["balance"] as double;
+
+    // 2. Save to Firebase
+    final repo = context.read<LinkedBankRepository>();
+    final ownerUserId = await repo.findUserIdForAccount(
+      orgId: orgId,
+      institutionName: institutionName,
+      acctId: acctId,
+    );
+
+    await repo.saveDailyBalance(
+      orgId: orgId,
+      userId: ownerUserId!,
+      institutionName: institutionName,
+      acctId: acctId,
+      balance: balance,
+    );
+
+    return balance;
+  }
 
 
   // ============================================================
   // BANK LINK (Plaid)
   // ============================================================
   Widget _bankSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ElevatedButton.icon(
-          icon: const Icon(Icons.account_balance),
-          label: const Text("Connect Bank via Plaid"),
-          onPressed: isReadOnly ? null : () {
-            // TODO: integrate Plaid link flow
-          },
-        ),
+    return FutureBuilder(
+      future: _loadOrgBanks(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Text("Loading bank accounts...");
+        }
 
-        const SizedBox(height: 12),
+        final data = snapshot.data as Map<String, List<BankAccount>>;
 
-        if (portfolio!.bankAccounts != null && portfolio!.bankAccounts!.isNotEmpty)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Linked Accounts:",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ...portfolio!.bankAccounts!.map((acc) {
-                return Container(
-                  padding: const EdgeInsets.all(10),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ⭐ ALWAYS SHOW THIS BUTTON
+            ElevatedButton.icon(
+              icon: const Icon(Icons.account_balance),
+              label: _plaidLoading
+                  ? const SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : const Text("Connect Bank via Plaid"),
+              onPressed: _startPlaidFlow,
+            ),
+
+            const SizedBox(height: 12),
+
+            const Text(
+              "Linked Bank Accounts:",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            // ⭐ If no banks → show message but KEEP the Plaid button above
+            if (data.isEmpty)
+              const Text("No bank accounts linked."),
+
+            // ⭐ Otherwise show accounts
+            ...data.entries.map((entry) {
+              final institutionName = entry.key;
+              final accounts = entry.value;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        institutionName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      // 🌀 Sync Button (NEW)
+                      IconButton(
+                        icon: const Icon(Icons.sync, size: 20),
+                        tooltip: "Sync Transactions",
+                        onPressed: () async {
+                          final session = context.read<AppSession>();
+                          final orgId = session.activeOrgId!;
+
+                          // Call backend syncer for this institution
+                          await PlaidService.syncer(
+                            orgId: orgId,
+
+                          );
+
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Transactions synced"),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+
+                        },
+                      ),
+                    ],
                   ),
-                  child: Text(acc),
-                );
-              }),
-            ],
-          )
-        else
-          const Text("No bank accounts linked."),
-      ],
+
+                  const SizedBox(height: 6),
+
+                  ...accounts.map((acct) {
+                    return FutureBuilder(
+                      future: _loadDailyBalance(
+                        institutionName: institutionName,
+                        mask: acct.mask,
+                        acct_id: acct.accountId
+                      ),
+                      builder: (context, snap) {
+                        final balance = snap.data;
+
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "${acct.name} ••••${acct.mask}",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  // REFRESH BUTTON
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh, color: Colors.blue),
+                                    tooltip: "Refresh Balance",
+                                    onPressed: () async {
+                                      final newBalance = await _refreshBalance(
+                                        institutionName: institutionName,
+                                        mask: acct.mask,
+                                        acctId: acct.accountId,
+                                      );
+                                      setState(() {});
+                                    },
+                                  ),
+
+                                  // ⭐ VIEW TRANSACTIONS BUTTON (NEW)
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility, color: Colors.green),
+                                    tooltip: "View Today's Transactions",
+                                    onPressed: () async {
+                                      final session = context.read<AppSession>();
+                                      final repo = context.read<LinkedBankRepository>();
+
+                                      final orgId = session.activeOrgId!;
+                                      final userId = await repo.findUserIdForAccount(
+                                        orgId: orgId,
+                                        institutionName: institutionName,
+                                        acctId: acct.accountId,
+                                      );
+
+                                      final today = DateTime.now();
+                                      final dayKey =
+                                          "${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}";
+
+                                      final txList = await repo.getDailyTransactions(
+                                        orgId: orgId,
+                                        userId: userId!,
+                                        institutionName: institutionName,
+                                        accountId: acct.accountId,
+                                        dayKey: dayKey,
+                                      );
+
+                                      if (txList.isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("No transactions for today")),
+                                        );
+                                        return;
+                                      }
+
+                                      // Navigate to list of transactions
+                                      Navigator.pushNamed(
+                                        context,
+                                        bankTransactionRoute,
+                                        arguments: {
+                                          "institutionName": institutionName,
+                                          "accountId": acct.accountId,
+                                        },
+                                      );
+
+                                    },
+                                  ),
+
+                                  // DELETE BUTTON
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    tooltip: "Delete Account",
+                                    onPressed: () async {
+                                      // your delete logic
+                                    },
+                                  ),
+                                ],
+                              )
+
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ],
+              );
+            }),
+          ],
+        );
+      },
     );
   }
+
+  Future<void> _deleteAccount(String institutionName, String acctId) async {
+    final session = context.read<AppSession>();
+    final repo = context.read<LinkedBankRepository>();
+    final orgId = session.activeOrgId!;
+
+    // 1. Find which user linked this account
+    final ownerUserId = await repo.findUserIdForAccount(
+      orgId: orgId,
+      institutionName: institutionName,
+      acctId: acctId,
+    );
+
+
+    if (ownerUserId == null) {
+      print("ERROR: No user found for account $acctId");
+      return;
+    }
+
+    // 2. Delete the account under the correct user
+    await repo.deleteAccount(
+      orgId: orgId,
+      userId: ownerUserId,
+      institutionName: institutionName,
+      acctId: acctId,
+    );
+
+    // 3. Reload all banks
+    final allBanks = await _loadOrgBanks();
+    final accounts = allBanks[institutionName] ?? [];
+
+    // 4. If this user has no accounts left → disconnect bank for THIS user
+    if (accounts.isEmpty) {
+      await repo.disconnectBank(
+        orgId: orgId,
+        userId: ownerUserId,
+        institutionName: institutionName,
+      );
+    }
+
+    // 5. Refresh UI
+    setState(() {});
+  }
+
+
+
 
   // ============================================================
   // DELETE BUTTON

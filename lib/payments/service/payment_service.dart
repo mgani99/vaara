@@ -1,6 +1,9 @@
+import 'package:provider/provider.dart';
+
 import '../../property/domain/balance_model.dart';
 import '../../property/domain/property_model.dart';
 import '../../property/model/balance_repository.dart';
+import '../../session/app_data.dart';
 import '../repository/payment_repository.dart';
 
 class PaymentService {
@@ -18,6 +21,7 @@ class PaymentService {
   Future<String> addPayment(PaymentModel model) async {
     final id = await paymentRepo.createPayment(model);
     await _updateBalance(model, oldAmount: 0);   // new payment
+
     return id;
   }
 
@@ -114,7 +118,7 @@ class PaymentService {
     final propertyId = payment.propertyId!;
 
     // Compute period YYYY-MM
-    final d = DateTime.fromMillisecondsSinceEpoch(payment.paymentDateEpoch);
+    final d = DateTime.fromMillisecondsSinceEpoch(payment.effectiveDateEpoch);
     final period = "${d.year}-${d.month.toString().padLeft(2, '0')}";
 
     // Load existing balance
@@ -134,4 +138,40 @@ class PaymentService {
 
     await balanceRepo.updateBalance(balance);
   }
+
+  final Map<String, MonthlyLedgerModel> _ledgerCache = {};
+
+  Future<MonthlyLedgerModel?> getMonthlyLedger(
+      String orgId,
+      String unitId,
+      String tenantId,
+      DateTime monthDate,
+      ) async {
+    // Compute previous month
+    final prevMonth = DateTime(
+      monthDate.year,
+      monthDate.month - 1,
+      1,
+    );
+
+    final ledgerKey = "${unitId}_${tenantId}";
+    final period = "${prevMonth.year}-${prevMonth.month.toString().padLeft(2, '0')}";
+
+    final key = "$orgId-$unitId-$tenantId-$period";
+
+    if (_ledgerCache.containsKey(key)) {
+      return _ledgerCache[key];
+
+    }
+
+    final data = await paymentRepo.getMonthlyLedger(ledgerKey: ledgerKey,orgId: orgId, period: period);
+    if (data == null) return null;
+
+    final model = MonthlyLedgerModel.fromMap(ledgerKey, data);
+    _ledgerCache[key] = model;
+    return model;
+  }
+
+
+
 }

@@ -4,6 +4,7 @@ import 'package:my_app/model/property.dart';
 import 'package:my_app/payments/repository/payment_repository.dart';
 import 'package:my_app/payments/service/payment_service.dart';
 import 'package:my_app/portfolio/controller/add_portfolio_controller.dart';
+import 'package:my_app/portfolio/model/linked_bank_repository.dart';
 import 'package:my_app/portfolio/model/portfolio_repository.dart';
 import 'package:my_app/portfolio/service/add_portfolio_service.dart';
 import 'package:my_app/property/controller/property_creation_controller.dart';
@@ -108,6 +109,7 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => BalanceRepository()),
         Provider(create: (_) => PropertyArchiveService(db)),
         Provider(create: (_) => PortfolioRepository()),
+        Provider(create: (_) => LinkedBankRepository()),
 
 
 

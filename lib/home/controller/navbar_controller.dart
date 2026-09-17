@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/home/view/home_dashboard.dart';
-import 'package:my_app/payments/view/payment_page.dart';
+import 'package:my_app/payments/view/payment_dashboard_page.dart';
 import 'package:my_app/profile/view/profile_settings_page.dart';
 import 'package:my_app/property/view/property_dashboard.dart';
 import 'package:my_app/session/app_data.dart';

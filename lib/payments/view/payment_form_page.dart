@@ -4,16 +4,18 @@ import 'package:provider/provider.dart';
 
 import '../../property/domain/property_model.dart';
 import '../../session/app_data.dart';
-
 import '../service/payment_service.dart';
 
 class PaymentFormPage extends StatefulWidget {
-
   final PaymentModel? payment;
+  final String? unitId;
+  final String? tenantId;
 
   const PaymentFormPage({
     super.key,
     this.payment,
+    this.unitId,
+    this.tenantId,
   });
 
   @override
@@ -27,9 +29,10 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   late TextEditingController _noteCtrl;
 
   String _paymentType = "Rent";
-  String _transactionType = "debit"; // debit = money received
+  String _transactionType = "debit";
   DateTime _selectedDate = DateTime.now();
-  late  PaymentService _service;
+
+  late PaymentService _service;
 
   final List<String> _paymentTypes = [
     "Rent",
@@ -41,29 +44,25 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   ];
 
   final List<String> _transactionTypes = [
-    "debit",   // money received
-    "credit",  // refund / adjustment
+    "debit",
+    "credit",
   ];
 
   @override
   void initState() {
     super.initState();
     _service = context.read<PaymentService>();
+
     final p = widget.payment;
 
-    _amountCtrl = TextEditingController(
-      text: p != null ? p.amount.toString() : "",
-    );
-
-    _noteCtrl = TextEditingController(
-      text: p != null ? p.note : "",
-    );
+    _amountCtrl = TextEditingController(text: p?.amount.toString() ?? "");
+    _noteCtrl = TextEditingController(text: p?.note ?? "");
 
     _paymentType = p?.paymentType ?? "Rent";
     _transactionType = p?.transactionType ?? "debit";
 
     _selectedDate = p != null
-        ? DateTime.fromMillisecondsSinceEpoch(p.paymentDateEpoch)
+        ? DateTime.fromMillisecondsSinceEpoch(p.effectiveDateEpoch)
         : DateTime.now();
   }
 
@@ -103,43 +102,61 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
     final isEditing = widget.payment != null;
 
-    final payment = PaymentModel(
-      paymentId: isEditing
-          ? widget.payment!.paymentId
-          : DateTime.now().millisecondsSinceEpoch.toString(),
+    // -----------------------------
+    // CREATE OR UPDATE PAYMENT MODEL
+    // -----------------------------
+    final payment = isEditing
+        ? widget.payment!.copyWith(
+      amount: amount,
+      paymentType: _paymentType,
+      transactionType: _transactionType,
+      effectiveDateEpoch: _selectedDate.millisecondsSinceEpoch,
+      note: _noteCtrl.text.trim(),
+      recordedAtEpoch: DateTime.now().millisecondsSinceEpoch,
+    )
+        : PaymentModel(
+      paymentId: DateTime.now().millisecondsSinceEpoch.toString(),
       orgId: orgId,
-      propertyId: widget.payment?.propertyId,
-      unitId: widget.payment?.unitId,
-      tenantId: widget.payment?.tenantId,
+      propertyId: session.unitCache[widget.unitId]!.propertyId,
+      unitId: widget.unitId!,
+      tenantId: widget.tenantId!,
       transactionType: _transactionType,
       paymentType: _paymentType,
       amount: amount,
-      paymentDateEpoch: _selectedDate.millisecondsSinceEpoch,
+      effectiveDateEpoch: _selectedDate.millisecondsSinceEpoch,
       note: _noteCtrl.text.trim(),
       status: "active",
-      createdAt: isEditing
-          ? widget.payment!.createdAt
-          : DateTime.now().millisecondsSinceEpoch,
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
-      isDeleted: false,
-      deletedAt: null,
+      recordedAtEpoch: DateTime.now().millisecondsSinceEpoch,
+
+      isDeleted:false,
+      deletedAt: null, actualDateEpoch:0, isSystemGenerated: false, validFromEpoch: DateTime.now().millisecondsSinceEpoch,
     );
 
-    _service = context.read<PaymentService>();
+    // -----------------------------
+    // SAVE TO FIREBASE
+    // -----------------------------
     if (isEditing) {
-      await context.read<PaymentService>().updatePayment(payment,oldAmount: 0);
+      await _service.updatePayment(payment, oldAmount: 0);
     } else {
       await _service.addPayment(payment);
     }
+
+    // -----------------------------
+    // UPDATE CACHE
+    // -----------------------------
+    session.updatePaymentInCache(payment);
 
     Navigator.pop(context);
   }
 
   Future<void> _deletePayment() async {
     if (widget.payment == null) return;
+
     final session = context.read<AppSession>();
-    _service = context.read<PaymentService>();
-    await _service.deletePayment(session.activeOrgId!,widget.payment!.paymentId!);
+    await _service.deletePayment(session.activeOrgId!, widget.payment!.paymentId!);
+
+    session.paymentCache.remove(widget.payment!.paymentId!);
+    session.noifyListeners();
     Navigator.pop(context);
   }
 
@@ -157,21 +174,18 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
           key: _formKey,
           child: ListView(
             children: [
-              // AMOUNT
               TextFormField(
                 controller: _amountCtrl,
                 decoration: const InputDecoration(
                   labelText: "Amount",
                   border: OutlineInputBorder(),
                 ),
-                keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) =>
                 v == null || v.trim().isEmpty ? "Required" : null,
               ),
               const SizedBox(height: 12),
 
-              // PAYMENT TYPE
               DropdownButtonFormField<String>(
                 value: _paymentType,
                 decoration: const InputDecoration(
@@ -185,7 +199,6 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
               ),
               const SizedBox(height: 12),
 
-              // TRANSACTION TYPE
               DropdownButtonFormField<String>(
                 value: _transactionType,
                 decoration: const InputDecoration(
@@ -199,7 +212,6 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
               ),
               const SizedBox(height: 12),
 
-              // NOTE
               TextFormField(
                 controller: _noteCtrl,
                 decoration: const InputDecoration(
@@ -210,7 +222,6 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
               ),
               const SizedBox(height: 12),
 
-              // DATE PICKER
               ListTile(
                 title: Text(
                   "Payment Date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}",
@@ -221,7 +232,6 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
               const SizedBox(height: 20),
 
-              // SAVE BUTTON
               ElevatedButton(
                 onPressed: _savePayment,
                 child: Text(isEditing ? "Update Payment" : "Add Payment"),
@@ -229,7 +239,6 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
               const SizedBox(height: 12),
 
-              // DELETE BUTTON
               if (isEditing)
                 ElevatedButton(
                   onPressed: _deletePayment,

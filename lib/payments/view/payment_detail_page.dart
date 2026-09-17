@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
 import 'package:my_app/payments/view/payment_form_page.dart';
 import 'package:my_app/session/app_data.dart';
 import 'package:my_app/utils/export_file.dart';
-import 'package:provider/provider.dart';
 
 import '../../property/domain/property_model.dart';
 import '../../route/route_constants.dart';
@@ -27,44 +28,71 @@ class PaymentDetailPage extends StatefulWidget {
 
 class _PaymentDetailPageState extends State<PaymentDetailPage> {
   late Future<_HeaderBundle> _future;
+  DateTime _currentMonth = DateTime.now();
+  List<_RowData> _allRows = [];
+  bool _loadingMore = false;
+  bool _noMoreData = false;
 
   @override
   void initState() {
     super.initState();
+    _currentMonth = widget.navigationDate;
     _future = _loadHeader();
+
   }
 
   Future<_HeaderBundle> _loadHeader() async {
     final session = context.read<AppSession>();
 
+    // Ledger month = previous month
+    final ledgerMonth = DateTime(
+      widget.navigationDate.year,
+      widget.navigationDate.month - 1,
+      1,
+    );
+
     final unit = session.unitCache[widget.unitId]!;
     final lease = session.currentLeaseCache[unit.currentLeaseId];
     final tenant = session.tenantCache[widget.tenantId]!;
 
-    final payments = session.paymentCache.values
-        .where((p) =>
+    // Load ledger for previous month
+    final monthLedger = await session.getMonthlyLedger(
+      session.activeOrgId!,
+      ledgerMonth,
+    );
+
+    final ledger = monthLedger["${unit.unitId}_${tenant.tenantId}"];
+    final beginningBalance = ledger?.endingBalance ?? 0;
+
+
+    final payments = await session.getPaymentsForMonth(
+      session.activeOrgId!,
+      widget.navigationDate.year,
+      widget.navigationDate.month,
+    );
+
+    final filtered = payments.where((p) =>
     p.unitId == widget.unitId &&
-        p.tenantId == widget.tenantId &&
-        DateTime.fromMillisecondsSinceEpoch(p.paymentDateEpoch)
-            .isBefore(DateTime(widget.navigationDate.year,
-            widget.navigationDate.month + 1, 1)))
-        .toList();
+        p.tenantId == widget.tenantId
+    ).toList();
 
-    payments.sort((a, b) =>
-        a.paymentDateEpoch.compareTo(b.paymentDateEpoch));
+    filtered.sort((a, b) => b.effectiveDateEpoch.compareTo(a.effectiveDateEpoch));
 
-    double runningBalance = 0;
+
+
+
+
+    double runningBalance = beginningBalance;
     final rows = <_RowData>[];
 
-    for (final p in payments) {
+    for (final p in filtered) {
       final isDebit = p.transactionType == "debit";
-      runningBalance += isDebit ? p.amount : -p.amount;
+      runningBalance += isDebit ? -p.amount : p.amount;
 
-      rows.add(_RowData(
-        payment: p,
-        balance: runningBalance,
-      ));
+      rows.add(_RowData(payment: p, balance: runningBalance));
     }
+
+    _allRows = rows;   // initialize master list
 
     return _HeaderBundle(
       unitName: unit.name,
@@ -74,58 +102,91 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
       leaseEnd: lease == null
           ? "-"
           : DateFormat("MMM dd, yyyy").format(
-          DateTime.fromMillisecondsSinceEpoch(lease.endDateEpoch)),
-      rows: rows.reversed.toList(),
+        DateTime.fromMillisecondsSinceEpoch(
+          lease.endDateEpoch,
+          isUtc: true,
+        ),
+      ),
+      beginningBalance: beginningBalance,
+      rows: _allRows,
     );
+
   }
 
-  void _openAddPayment(_HeaderBundle header) async {
-    final payment = PaymentModel(
-      paymentId: DateTime.now().millisecondsSinceEpoch.toString(),
-      orgId: context.read<AppSession>().activeOrgId!,
-      propertyId: null,
-      unitId: widget.unitId,
-      tenantId: widget.tenantId,
-      transactionType: "debit",
-      paymentType: "Rent",
-      amount: 0,
-      paymentDateEpoch: DateTime.now().millisecondsSinceEpoch,
-      note: "",
-      status: "active",
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
+  Future<void> _loadPreviousMonth() async {
+    if (_loadingMore || _noMoreData) return;
+
+    setState(() => _loadingMore = true);
+
+    final session = context.read<AppSession>();
+
+    // Move to previous month
+    _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1, 1);
+
+    final payments = await session.getPaymentsForMonth(
+      session.activeOrgId!,
+      _currentMonth.year,
+      _currentMonth.month,
     );
 
+    // Filter for same unit + tenant
+    final filtered = payments.where((p) =>
+    p.unitId == widget.unitId &&
+        p.tenantId == widget.tenantId
+    ).toList();
+
+    if (filtered.isEmpty) {
+      setState(() {
+        _noMoreData = true;
+        _loadingMore = false;
+      });
+      return;
+    }
+
+    // ⭐ Sort DESCENDING inside the month
+    filtered.sort((a, b) => b.effectiveDateEpoch.compareTo(a.effectiveDateEpoch));
+
+    // Continue running balance from last known balance
+    double runningBalance = _allRows.isNotEmpty
+        ? _allRows.last.balance
+        : 0;
+
+    // ⭐ Append at the BOTTOM
+    for (final p in filtered) {
+      final isDebit = p.transactionType == "debit";
+      runningBalance += isDebit ? p.amount : -p.amount;
+
+      _allRows.add(_RowData(payment: p, balance: runningBalance));
+    }
+
+    setState(() => _loadingMore = false);
+  }
+
+
+  void _openAddPayment(_HeaderBundle header) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PaymentFormPage(
-          payment: payment,
+          payment: null,
+          unitId: widget.unitId,
+          tenantId: widget.tenantId,
         ),
       ),
     );
-    final future = _loadHeader();
-    setState(() {
-      _future = future;
-    });
 
-
+    setState(() => _future = _loadHeader());
   }
 
   void _openEditPayment(PaymentModel payment) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PaymentFormPage(
-          payment: payment,
-        ),
+        builder: (_) => PaymentFormPage(payment: payment),
       ),
     );
-    final future = _loadHeader();
-    setState(() {
-      _future = future;
-    });
 
+    setState(() => _future = _loadHeader());
   }
 
   String _exportLedger(_HeaderBundle header) {
@@ -136,23 +197,24 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
     buffer.writeln("Tenant: ${header.tenantName}");
     buffer.writeln("Unit: ${header.unitName}");
     buffer.writeln("");
+    buffer.writeln("Beginning Balance: ${header.beginningBalance}");
+    buffer.writeln("");
     buffer.writeln("Date,Amount,Type,Balance");
 
     for (final row in header.rows) {
       final p = row.payment;
       final date = fmt.format(
-          DateTime.fromMillisecondsSinceEpoch(p.paymentDateEpoch));
+        DateTime.fromMillisecondsSinceEpoch(
+          p.effectiveDateEpoch,
+          isUtc: true,
+        ),
+      );
 
-      final type = p.transactionType == "debit"
-          ? "${p.paymentType} paid"
-          : "${p.paymentType} charged";
+      final isDebit = p.transactionType == "debit";
+      final amt = isDebit ? p.amount : -p.amount;
+      final type = isDebit ? "${p.paymentType} (Charge)" : "${p.paymentType} (Payment)";
 
-      final amt = p.transactionType == "debit"
-          ? p.amount
-          : -p.amount;
-
-      buffer.writeln(
-          "$date,$amt,$type,${row.balance.toStringAsFixed(2)}");
+      buffer.writeln("$date,$amt,$type,${row.balance.toStringAsFixed(2)}");
     }
 
     return buffer.toString();
@@ -175,7 +237,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // HEADER CARD
+              // ⭐ HEADER CARD
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -204,8 +266,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                               arguments: widget.unitId,
                             );
                           },
-                          child: const Icon(Icons.edit_note,
-                              color: Colors.blue),
+                          child: const Icon(Icons.edit_note, color: Colors.blue),
                         ),
                       ],
                     ),
@@ -214,6 +275,10 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                     _headerRow("Tenant", header.tenantName),
                     _headerRow("Rent", "\$${fmt.format(header.rent)}"),
                     _headerRow("Lease End", header.leaseEnd),
+                    _headerRow(
+                      "Beginning Balance",
+                      "\$${fmt.format(header.beginningBalance)}",
+                    ),
                   ],
                 ),
               ),
@@ -230,14 +295,17 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
 
               const SizedBox(height: 10),
 
-              ...header.rows.map((row) {
+              ..._allRows.map((row) {
                 final p = row.payment;
                 final date = DateFormat("MMM dd, yyyy").format(
-                    DateTime.fromMillisecondsSinceEpoch(
-                        p.paymentDateEpoch));
+                  DateTime.fromMillisecondsSinceEpoch(
+                    p.effectiveDateEpoch,
+                    isUtc: true,
+                  ),
+                );
 
                 final isDebit = p.transactionType == "debit";
-                final color = isDebit ? Colors.green : Colors.red;
+                final color = isDebit ? Colors.red : Colors.green;
 
                 return GestureDetector(
                   onTap: () => _openEditPayment(p),
@@ -253,8 +321,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                       children: [
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(date,
                                   style: const TextStyle(
@@ -266,13 +333,13 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                               ),
                               if (p.note.isNotEmpty)
                                 Padding(
-                                  padding:
-                                  const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     p.note,
                                     style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black87),
+                                      fontSize: 13,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -294,8 +361,9 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                             const Text(
                               "Balance",
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54),
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
                             ),
                           ],
                         ),
@@ -307,10 +375,36 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                   ),
                 );
               }),
-
+              if (_noMoreData)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Text(
+                      "No more data",
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: ElevatedButton(
+                      onPressed: _loadingMore ? null : _loadPreviousMonth,
+                      child: _loadingMore
+                          ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : const Text("Load More"),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 40),
             ],
           );
+
         },
       ),
 
@@ -330,19 +424,19 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ActionChip(
-                  avatar: const Icon(Icons.attach_money,
-                      color: Colors.green),
+                  avatar: const Icon(Icons.attach_money, color: Colors.green),
                   label: const Text("+Pay"),
                   onPressed: () => _openAddPayment(header),
                 ),
                 ActionChip(
-                  avatar: const Icon(Icons.receipt_long,
-                      color: Colors.blue),
+                  avatar: const Icon(Icons.receipt_long, color: Colors.blue),
                   label: const Text("Ledger"),
                   onPressed: () {
                     final csv = _exportLedger(header);
-                    exportCsv(csv,
-                        "ledger_${header.unitName}_${header.tenantName}.csv");
+                    exportCsv(
+                      csv,
+                      "ledger_${header.unitName}_${header.tenantName}.csv",
+                    );
                   },
                 ),
               ],
@@ -360,8 +454,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(
-                  fontSize: 14, color: Colors.black87)),
+              style: const TextStyle(fontSize: 14, color: Colors.black87)),
           Text(value,
               style: const TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w600)),
@@ -384,6 +477,7 @@ class _HeaderBundle {
   final String tenantPhone;
   final double rent;
   final String leaseEnd;
+  final double beginningBalance;
   final List<_RowData> rows;
 
   _HeaderBundle({
@@ -392,6 +486,7 @@ class _HeaderBundle {
     required this.tenantPhone,
     required this.rent,
     required this.leaseEnd,
+    required this.beginningBalance,
     required this.rows,
   });
 }

@@ -82,25 +82,27 @@ class PaymentRepository {
   // ------------------------------------------------------------
   Future<List<PaymentModel>> fetchPaymentsForMonth(
       String orgId, int year, int month) async {
+
+
     final snapshot = await _db.child("orgs/$orgId/Payments").get();
     if (!snapshot.exists) return [];
-
-    final start = DateTime(year, month, 1).millisecondsSinceEpoch;
-    final end = DateTime(year, month + 1, 1)
-        .subtract(const Duration(days: 1))
-        .millisecondsSinceEpoch;
 
     return snapshot.children
         .map((child) {
       final map = Map<String, dynamic>.from(child.value as Map);
       return PaymentModel.fromMap(child.key!, map);
     })
-        .where((p) =>
-    p.paymentDateEpoch >= start &&
-        p.paymentDateEpoch <= end &&
-        p.isDeleted != true)
+        .where((p) {
+      final eff = DateTime.fromMillisecondsSinceEpoch(p.effectiveDateEpoch, isUtc: true);
+
+      // ✅ Correct month/year matching
+      final sameMonth = eff.year == year && eff.month == month;
+
+      return sameMonth && p.isDeleted != true;
+    })
         .toList();
   }
+
 
   // ------------------------------------------------------------
   // End-of-month ledger aggregation (credit/debit summary)
@@ -124,6 +126,21 @@ class PaymentRepository {
       "createdAt": DateTime.now().millisecondsSinceEpoch,
     });
   }
+
+  Future<Map<String, dynamic>?> getMonthlyLedger({
+    required String orgId,
+    required String period,      // "2026-09"
+    required String ledgerKey,   // "unitId_tenantId"
+  }) async {
+    final ref = _db.child("orgs/$orgId/MonthlyLedger/$period/$ledgerKey");
+
+    final snapshot = await ref.get();
+    print(ledgerKey + " " + period);
+    if (!snapshot.exists) return null;
+
+    return Map<String, dynamic>.from(snapshot.value as Map);
+  }
+
 
   // ------------------------------------------------------------
   // Fetch monthly ledger summary

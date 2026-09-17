@@ -40,24 +40,27 @@ class AppSession extends ChangeNotifier {
   final Map<String, PropertyValuationModel> _valuationCache = {};
   Map<String, PropertyValuationModel> get valuationCache => _valuationCache;
 
+  final Map<String, Map<String, MonthlyLedgerModel>> _ledgerMonthCache = {};
+  Map<String, Map<String, MonthlyLedgerModel>> get ledgerMonthCache => _ledgerMonthCache;
+
+
   // ============================================================
-// PAYMENT CACHE
-// ============================================================
+  // PAYMENT CACHE
+  // ============================================================
   final Map<String, PaymentModel> _paymentCache = {};
   Map<String, PaymentModel> get paymentCache => _paymentCache;
 
   // ============================================================
-// ORG USERS CACHE
-// ============================================================
+  // ORG USERS CACHE
+  // ============================================================
   final Map<String, OrgUser> _orgUsersCache = {};
   Map<String, OrgUser> get orgUsersCache => _orgUsersCache;
+
   // ============================================================
-// USER PROFILE CACHE (ReUser)
-// ============================================================
+  // USER PROFILE CACHE (ReUser)
+  // ============================================================
   final Map<String, ReUser> _userCache = {};
   Map<String, ReUser> get userCache => _userCache;
-
-
 
   // ============================================================
   // REPOSITORIES
@@ -71,6 +74,7 @@ class AppSession extends ChangeNotifier {
   final LeaseDetailsRepository leaseRepo;
   final TenantRepository tenantRepo;
   final PaymentRepository paymentRepo;
+
   // ============================================================
   // REALTIME SYNC SERVICE
   // ============================================================
@@ -84,8 +88,8 @@ class AppSession extends ChangeNotifier {
     required this.unitRepo,
     required this.leaseRepo,
     required this.tenantRepo,
-    required this.paymentRepo,}
-  ) {
+    required this.paymentRepo,
+  }) {
     cacheSync = CacheSyncService(
       db: FirebaseDatabase.instance,
       session: this,
@@ -109,8 +113,9 @@ class AppSession extends ChangeNotifier {
   List<PaymentModel> get recentPayments => _recentPayments;
   final List<PaymentModel> _recentPayments = [];
 
-
-
+  // ============================================================
+  // CACHE UPDATERS
+  // ============================================================
   void updateOrgUserInCache(OrgUser orgUser) {
     _orgUsersCache[orgUser.userId] = orgUser;
     notifyListeners();
@@ -126,13 +131,11 @@ class AppSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================================
-  // SETTERS
-  // ============================================================
   void setUser(ReUser user) {
     _user = user;
     notifyListeners();
   }
+
   void updateValuationInCache(PropertyValuationModel valuation) {
     _valuationCache[valuation.propertyId] = valuation;
     notifyListeners();
@@ -147,23 +150,47 @@ class AppSession extends ChangeNotifier {
     _tenantCache[tenant.tenantId] = tenant;
     notifyListeners();
   }
+
   void updateLeaseInCache(LeaseDetailsModel lease) {
     _currentLeaseCache[lease.leaseId] = lease;
     notifyListeners();
   }
+
   void updateUnitInCache(UnitModel unit) {
     _unitCache[unit.unitId] = unit;
     notifyListeners();
   }
 
+  void updatePaymentInCache(PaymentModel payment) {
+    _paymentCache[payment.paymentId] = payment;
+    notifyListeners();
+  }
+
+  void updateLedgerMonthInCache(String period, Map<String, MonthlyLedgerModel> monthData) {
+    _ledgerMonthCache[period] = monthData;
+
+    // Evict older months if > 3 cached
+    if (_ledgerMonthCache.length > 24) {
+      final sortedKeys = _ledgerMonthCache.keys.toList()..sort();
+      final oldest = sortedKeys.first;
+      _ledgerMonthCache.remove(oldest);
+    }
+
+    notifyListeners();
+  }
+
+
+
+  // ============================================================
+  // ACTIVE ORG SETTERS
+  // ============================================================
   void setActiveOrg(String? orgId) {
     _activeOrgId = orgId;
 
     if (orgId != null) {
-      //print("attacheing cache");
-      cacheSync.attachOrg(orgId);   // ⭐ REALTIME SYNC ENABLED
+      cacheSync.attachOrg(orgId);
     } else {
-      cacheSync.detachOrg();        // ⭐ STOP LISTENERS
+      cacheSync.detachOrg();
     }
 
     notifyListeners();
@@ -191,7 +218,7 @@ class AppSession extends ChangeNotifier {
     _orgUsersCache.clear();
     _paymentCache.clear();
     _userCache.clear();
-
+    _ledgerMonthCache.clear();   // ⭐ NEW
     notifyListeners();
   }
 
@@ -239,7 +266,7 @@ class AppSession extends ChangeNotifier {
       ..clear()
       ..addEntries(orgUsers.map((u) => MapEntry(u.userId, u)));
 
-    // ⭐ 6. USER PROFILES (ReUser)
+    // 6. USER PROFILES
     _userCache.clear();
     for (final orgUser in orgUsers) {
       final profile = await orgUserRepo.getUserProfile(orgUser.userId);
@@ -247,7 +274,9 @@ class AppSession extends ChangeNotifier {
         _userCache[orgUser.userId] = profile;
       }
     }
-    // 5. VALUATIONS
+
+
+    // 7. VALUATIONS
     _valuationCache.clear();
     for (final p in properties) {
       final val = await propertyRepo.getValuation(orgId, p.propertyId);
@@ -256,8 +285,7 @@ class AppSession extends ChangeNotifier {
       }
     }
 
-    // 6. PAYMENTS
-// ⭐ 6. PAYMENTS — LOAD ONLY CURRENT MONTH (optimized)
+    // 8. PAYMENTS — only current month
     final now = DateTime.now();
     final payments = await paymentRepo.fetchPaymentsForMonth(
       orgId,
@@ -269,8 +297,48 @@ class AppSession extends ChangeNotifier {
       ..clear()
       ..addEntries(payments.map((p) => MapEntry(p.paymentId, p)));
 
-
+    await preloadLedgerForPreviousMonth(activeOrgId!);
     notifyListeners();
+  }
+
+  Future<Map<String, MonthlyLedgerModel>> getMonthlyLedger(
+      String orgId,
+      DateTime monthDate,
+      ) async {
+    final period = "${monthDate.year}-${monthDate.month.toString().padLeft(2, '0')}";
+
+    // Return from cache
+    if (_ledgerMonthCache.containsKey(period)) {
+      print('cache hit $period');
+      return _ledgerMonthCache[period]!;
+    }
+
+    print('cache miss $period');
+    // Fetch from DB
+    final ref = FirebaseDatabase.instance
+        .ref("orgs/$orgId/MonthlyLedger/$period");
+
+    final snapshot = await ref.get();
+    if (!snapshot.exists) {
+      updateLedgerMonthInCache(period, {});
+      return {};
+    }
+
+    final raw = snapshot.value as Map<dynamic, dynamic>;
+    final parsed = <String, MonthlyLedgerModel>{};
+
+    raw.forEach((key, value) {
+      parsed[key.toString()] =
+          MonthlyLedgerModel.fromMap(key.toString(), Map<String, dynamic>.from(value));
+    });
+
+    updateLedgerMonthInCache(period, parsed);
+    return parsed;
+  }
+
+
+  Future<List<PaymentModel>> getPaymentsForMonth(String orgId, int year, int month) async {
+    return await paymentRepo.fetchPaymentsForMonth(orgId, year, month);
   }
 
   // ============================================================
@@ -284,15 +352,11 @@ class AppSession extends ChangeNotifier {
 
     final userId = _user!.userId.toString();
 
-    // Load orgs for dropdown
     final orgs = await orgUserRepo.getOrgsForUser(userId);
     setOrganizations(orgs);
 
     final prefs = await prefsRepo.getPreferences(userId);
 
-    // ------------------------------------------------------------
-    // 1. Saved default org
-    // ------------------------------------------------------------
     if (prefs?.defaultOrgId != null) {
       final orgId = prefs!.defaultOrgId!;
       final orgUser = await orgUserRepo.getOrgUser(orgId, userId);
@@ -308,14 +372,11 @@ class AppSession extends ChangeNotifier {
         setActiveOrgName(orgName);
         setActiveRole(role);
 
-        await loadOrgScopedData();   // ⭐ initial load
+        await loadOrgScopedData();
         return;
       }
     }
 
-    // ------------------------------------------------------------
-    // 2. Choose best org + role
-    // ------------------------------------------------------------
     final best = await roleResolver.chooseBestOrgAndRole(userId);
 
     if (best != null) {
@@ -329,15 +390,21 @@ class AppSession extends ChangeNotifier {
 
       await prefsRepo.setDefaultOrg(userId, orgId);
 
-      await loadOrgScopedData();     // ⭐ initial load
+      await loadOrgScopedData();
     }
   }
+  Future<void> preloadLedgerForPreviousMonth(String orgId) async {
+    final now = DateTime.now();
+    final prevMonth = DateTime(now.year, now.month - 1, 1);
+    await getMonthlyLedger(orgId, prevMonth);
+  }
+
 
   // ============================================================
   // CLEAR ENTIRE SESSION
   // ============================================================
   void clear() {
-    cacheSync.detachOrg();           // ⭐ stop realtime listeners
+    cacheSync.detachOrg();
 
     _user = null;
     _activeOrgId = null;
@@ -354,17 +421,8 @@ class AppSession extends ChangeNotifier {
     await prefsRepo.setDefaultOrg(_user!.userId.toString(), orgId);
   }
 
-  void updatePropertyInCache(PropertyModel propertyModel) {
-    _propertyCache[propertyModel.propertyId] = propertyModel;
-    notifyListeners();
-  }
-
-  void updatePaymentInCache(PaymentModel payment) {
-    _paymentCache[payment.paymentId] = payment;
-    notifyListeners();
-  }
-
   void noifyListeners() {
     notifyListeners();
   }
 }
+

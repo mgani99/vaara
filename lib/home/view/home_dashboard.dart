@@ -9,6 +9,12 @@ import '../../route/route_constants.dart';
 class HomeDashboard extends StatelessWidget {
   const HomeDashboard({super.key});
 
+
+
+  DateTime parseEpocTime(int epoc) {
+    if (epoc!= null && epoc == 0) return DateTime.now();
+    return DateTime.fromMicrosecondsSinceEpoch(epoc);
+  }
   @override
   Widget build(BuildContext context) {
     final session = context.watch<AppSession>();
@@ -43,7 +49,7 @@ class HomeDashboard extends StatelessWidget {
           .map((u) => "Vacant: ${u.name}"),
       ...leases.where((l) {
         if (l.endDateEpoch == 0) return false;
-        final parsed = l.parseEpocTime(l.startDateEpoch);
+        final parsed = parseEpocTime(l.startDateEpoch);
         if (parsed == 0) return false;
         return parsed.isBefore(DateTime.now().add(const Duration(days: 30)));
       }).map((l) => "Lease expiring soon: ${l.unitId}"),
