@@ -74,7 +74,7 @@ class PlaidService {
 
       final json = jsonDecode(res.body);
 
-
+      print(json);
       final bal = json["balance"];
       if (bal is num) {
         return {

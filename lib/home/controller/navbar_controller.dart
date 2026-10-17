@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/finance/view/financial_dashboard_page.dart';
+
 import 'package:my_app/home/view/home_dashboard.dart';
 import 'package:my_app/payments/view/payment_dashboard_page.dart';
 import 'package:my_app/profile/view/profile_settings_page.dart';
@@ -28,6 +30,7 @@ class NavBarController extends ChangeNotifier {
           const HomeDashboard(),
           const PropertyDashboard(),
           const PaymentDashboardPage(),
+          const FinancialDashboardPage(),
           const ProfileSettingsPage(),
         ];
         break;

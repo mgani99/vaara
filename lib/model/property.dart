@@ -802,7 +802,7 @@ class Expense implements Comparable<Expense> {
   double amount =0.0;
   DateTime dateOfExpense = DateTime.now();
   String comment = "";
-  int issueId=0; //for repair related expenses
+  int issueId=0; //for repair related finance
 
 
   Expense({

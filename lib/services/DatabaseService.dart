@@ -16,7 +16,7 @@ class DatabaseService {
   static const TX_MONTH_REF = "Reapp/currentMonth";//mm/yy
   static const TX_SUMMARY_BY_MONTH = "Reapp/txSummary/";
 
-  static const EXPENSE_REF = "Reapp/expenses";
+  static const EXPENSE_REF = "Reapp/finance";
 
   static String AC_REF = "Reapp/autocalculator";
 

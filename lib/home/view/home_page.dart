@@ -61,14 +61,15 @@ class _HomePageState extends State<HomePage> {
         return [
           _item(Icons.home, "Home"),
           _item(Icons.home_work, "Properties"),
-          _item(Icons.attach_money, "Payments"),
+          _item(Icons.attach_money, "Rents"),
+          _item(Icons.account_balance_wallet, "Finance"),
           _item(Icons.person, "Profile"),
         ];
 
       case UserRole.tenant:
         return [
           _item(Icons.home, "Home"),
-          _item(Icons.receipt_long, "Payments"),
+          _item(Icons.receipt_long, "Rents"),
           _item(Icons.person, "Profile"),
         ];
 

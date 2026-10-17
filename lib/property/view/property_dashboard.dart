@@ -308,30 +308,38 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
   /// ===============================================================
   /// SUMMARY GRID (unchanged)
   /// ===============================================================
-  Widget _summaryGrid(context,
+  Widget _summaryGrid(
+      BuildContext context,
       List<PropertyModel> properties,
       List<UnitModel> units,
       Map<String, Map<String, LeaseDetailsModel?>> leasesByPropertyUnit,
       Map<String, PropertyValuationModel?> valuations,
-      ThemeData theme,) {
+      ThemeData theme,
+      ) {
     final totalProperties = properties.length;
 
     double totalValue = 0;
+
     for (final p in properties) {
-      final val = valuations[p.propertyId];
-      if (val?.currentValue != null) {
-        totalValue += val!.currentValue!;
+      final valuation = valuations[p.propertyId];
+
+      if (valuation?.currentValue != null) {
+        totalValue += valuation!.currentValue!;
       }
     }
 
     String totalValueFormatted;
+
     if (totalValue >= 1000000) {
-      totalValueFormatted = "${(totalValue / 1000000).toStringAsFixed(2)}M";
+      totalValueFormatted =
+      "${(totalValue / 1000000).toStringAsFixed(2)}M";
     } else {
-      totalValueFormatted = "${(totalValue / 1000).toStringAsFixed(1)}K";
+      totalValueFormatted =
+      "${(totalValue / 1000).toStringAsFixed(1)}K";
     }
 
     final cities = <String>{};
+
     for (final p in properties) {
       if (p.city != null && p.city!.trim().isNotEmpty) {
         cities.add(p.city!.trim());
@@ -342,8 +350,10 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
 
     int occupied = 0;
     int vacant = 0;
+
     for (final p in properties) {
       final unitMap = leasesByPropertyUnit[p.propertyId] ?? {};
+
       for (final lease in unitMap.values) {
         if (lease != null) {
           occupied++;
@@ -359,53 +369,51 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
           children: [
             Expanded(
               child: _summaryCard(
-                icon: Icons.home,
-                title: "Property #",
+                title: "Properties",
                 value: "$totalProperties",
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                icon: Icons.attach_money,
-                title: "Total Value",
+                title: "Portfolio Value",
                 value: "\$$totalValueFormatted",
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                icon: Icons.location_pin,
                 title: "Cities",
                 value: "${cities.length}",
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: _summaryCard(
-                icon: Icons.apartment,
-                title: "Unit Count",
+                title: "Units",
                 value: "$totalUnits",
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                icon: Icons.check_circle,
                 title: "Occupied",
                 value: "$occupied",
+                valueColor: Colors.green.shade700,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                icon: Icons.cancel,
                 title: "Vacant",
                 value: "$vacant",
+                valueColor: vacant > 0
+                    ? Colors.red.shade700
+                    : Colors.black87,
               ),
             ),
           ],
@@ -413,44 +421,51 @@ class _PropertyDashboardState extends State<PropertyDashboard> {
       ],
     );
   }
-
   Widget _summaryCard({
-    required IconData icon,
     required String title,
     required String value,
+    Color? valueColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
+      height: 66,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey.shade300,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 13, // was 12
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? Colors.black87,
             ),
           ),
+
+          const SizedBox(height: 2),
 
           Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 11, // was 10
+              fontSize: 11,
               color: Colors.black54,
               fontWeight: FontWeight.w500,
             ),
           ),
-
-          const SizedBox(height: 2),
-          Icon(icon, size: 14, color: Colors.grey.shade600),
         ],
       ),
     );
@@ -567,31 +582,21 @@ class _PropertyDashboardCardState extends State<PropertyDashboardCard> {
 
               Expanded(
                 child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,   // ⭐ ensures whole row is clickable
-                  onTap: widget.onViewProperty,            // ⭐ name + icon both open details
-                  child: Row(
-                    children: [
-                      Text(
-                        widget.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-
-                      // ⭐ Details icon (bigger)
-                      Icon(
-                        Icons.info_outline,
-                        size: 18,                           // ⭐ increased from 16
-                        color: Colors.blue.shade700,
-                      ),
-                    ],
+                  behavior: HitTestBehavior.translucent,
+                  onTap: widget.onViewProperty,
+                  child: Text(
+                    widget.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.blue.shade700,
+                    ),
                   ),
                 ),
               ),
-
 
 
               GestureDetector(

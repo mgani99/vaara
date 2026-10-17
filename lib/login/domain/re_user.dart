@@ -12,6 +12,11 @@ class ReUser {
   final List<dynamic> fcmTokens;
 
   final String status;
+
+  /// NEW
+  /// admin | support | user
+  final String systemRole;
+
   final int createdAt;
   final int updatedAt;
   final int lastLoginAt;
@@ -23,7 +28,6 @@ class ReUser {
   final bool smsNotifications;
   final bool pushNotifications;
 
-  // Global onboarding flag (not org-specific)
   final bool onboardingCompleted;
 
   ReUser({
@@ -37,6 +41,10 @@ class ReUser {
     required this.firebaseUid,
     required this.fcmTokens,
     required this.status,
+
+    /// NEW
+    this.systemRole = "user",
+
     required this.createdAt,
     required this.updatedAt,
     required this.lastLoginAt,
@@ -58,8 +66,14 @@ class ReUser {
       profilePictureUrl: map['profilePictureUrl'] ?? "",
       authProvider: map['authProvider'] ?? "password",
       firebaseUid: map['firebaseUid'] ?? "",
-      fcmTokens: map['fcmTokens'] is List ? map['fcmTokens'] as List : const [],
+      fcmTokens: map['fcmTokens'] is List
+          ? map['fcmTokens'] as List
+          : const [],
       status: map['status'] ?? "active",
+
+      /// NEW
+      systemRole: map['systemRole'] ?? "user",
+
       createdAt: map['createdAt'] as int? ?? 0,
       updatedAt: map['updatedAt'] as int? ?? 0,
       lastLoginAt: map['lastLoginAt'] as int? ?? 0,
@@ -84,6 +98,10 @@ class ReUser {
       "firebaseUid": firebaseUid,
       "fcmTokens": fcmTokens,
       "status": status,
+
+      /// NEW
+      "systemRole": systemRole,
+
       "createdAt": createdAt,
       "updatedAt": updatedAt,
       "lastLoginAt": lastLoginAt,
@@ -97,6 +115,7 @@ class ReUser {
   }
 
   String get fullName => "$firstName $lastName";
+
   ReUser copyWith({
     int? userId,
     String? email,
@@ -106,8 +125,12 @@ class ReUser {
     String? profilePictureUrl,
     String? authProvider,
     String? firebaseUid,
-    List<String>? fcmTokens,
+    List<dynamic>? fcmTokens,
     String? status,
+
+    // NEW
+    String? systemRole,
+
     int? createdAt,
     int? updatedAt,
     int? lastLoginAt,
@@ -124,25 +147,38 @@ class ReUser {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       phone: phone ?? this.phone,
-      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
+      profilePictureUrl:
+      profilePictureUrl ?? this.profilePictureUrl,
       authProvider: authProvider ?? this.authProvider,
       firebaseUid: firebaseUid ?? this.firebaseUid,
       fcmTokens: fcmTokens ?? this.fcmTokens,
       status: status ?? this.status,
+
+      // NEW
+      systemRole: systemRole ?? this.systemRole,
+
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       language: language ?? this.language,
       timezone: timezone ?? this.timezone,
-      emailNotifications: emailNotifications ?? this.emailNotifications,
-      smsNotifications: smsNotifications ?? this.smsNotifications,
-      pushNotifications: pushNotifications ?? this.pushNotifications,
-      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      emailNotifications:
+      emailNotifications ?? this.emailNotifications,
+      smsNotifications:
+      smsNotifications ?? this.smsNotifications,
+      pushNotifications:
+      pushNotifications ?? this.pushNotifications,
+      onboardingCompleted:
+      onboardingCompleted ?? this.onboardingCompleted,
     );
   }
 }
 
-
+class SystemRoles {
+  static const user = 'user';
+  static const admin = 'admin';
+  static const support = 'support';
+}
 
 
 // lib/session/user_preferences.dart

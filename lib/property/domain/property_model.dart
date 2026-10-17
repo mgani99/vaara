@@ -1428,6 +1428,7 @@ class BankAccount {
   }
 }
 class PlaidTransaction {
+  final String transactionId;
   final double amount;
   final List<String> category;
   final DateTime date;
@@ -1437,6 +1438,7 @@ class PlaidTransaction {
   final String type;
 
   PlaidTransaction({
+    required this.transactionId,
     required this.amount,
     required this.category,
     required this.date,
@@ -1446,26 +1448,84 @@ class PlaidTransaction {
     required this.type,
   });
 
-  factory PlaidTransaction.fromMap(Map<String, dynamic> map) {
+  factory PlaidTransaction.fromMap(
+      Map<String, dynamic> map,
+      ) {
     return PlaidTransaction(
-      amount: (map['amount'] ?? 0).toDouble(),
-      category: List<String>.from(map['category'] ?? []),
-      date: DateTime.parse(map['date']),
-      merchantName: map['merchant_name'] ?? '',
-      name: map['name'] ?? '',
-      pending: map['pending'] ?? false,
-      type: map['type'] ?? '',
+      transactionId:
+      map['transaction_id'] ?? '',
+      amount:
+      (map['amount'] ?? 0).toDouble(),
+      category:
+      List<String>.from(
+        map['category'] ?? [],
+      ),
+      date: DateTime.parse(
+        map['date'],
+      ),
+      merchantName:
+      map['merchant_name'] ?? '',
+      name:
+      map['name'] ?? '',
+      pending:
+      map['pending'] ?? false,
+      type:
+      map['type'] ?? '',
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'transaction_id': transactionId,
       'amount': amount,
       'category': category,
       'date': date.toIso8601String(),
       'merchant_name': merchantName,
       'name': name,
       'pending': pending,
+      'type': type,
+    };
+  }
+}
+class ReappTransaction {
+  final String id;
+  final double amount;
+  final DateTime transactionDate;
+  final String category;
+  final String type;
+  final String plaidTransactionId;
+
+  ReappTransaction({
+    required this.id,
+    required this.amount,
+    required this.transactionDate,
+    required this.category,
+    required this.type,
+    required this.plaidTransactionId
+  });
+
+  factory ReappTransaction.fromMap(
+      Map<String, dynamic> map,
+      ) {
+    return ReappTransaction(
+      id: map['id'] ?? '',
+      amount: (map['amount'] ?? 0).toDouble(),
+      transactionDate: DateTime.parse(
+        map['transactionDate'],
+      ),
+      category: map['category'] ?? '',
+      type: map['type'] ?? '',
+      plaidTransactionId: map['plaidTransactionId'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'transactionDate':
+      transactionDate.toIso8601String(),
+      'category': category,
       'type': type,
     };
   }

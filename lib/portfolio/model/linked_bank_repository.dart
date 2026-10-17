@@ -1,6 +1,8 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:my_app/property/domain/property_model.dart';
 
+import '../../finance/view/financial_dashboard_page.dart';
+
 class LinkedBankRepository {
   final DatabaseReference db = FirebaseDatabase.instance.ref();
 
@@ -30,6 +32,80 @@ class LinkedBankRepository {
     for (final acct in result.accounts) {
       await accountsRef.child(acct.accountId).set(acct.toMap());
     }
+  }
+
+  Future<List<PlaidTransaction>> getMonthlyTransactionsForOrg({
+    required String orgId,
+    required DateTime month,
+  }) async {
+    final allTransactions = <PlaidTransaction>[];
+
+
+    final bankData = await getAllOrgBanks(orgId);
+
+    final monthPrefix =
+        '${month.year}${month.month.toString().padLeft(2, '0')}';
+
+    for (final institutionEntry in bankData.entries) {
+      final institutionName = institutionEntry.key;
+
+      for (final account in institutionEntry.value) {
+        final userId = await findUserIdForAccount(
+          orgId: orgId,
+          institutionName: institutionName,
+          acctId: account.accountId,
+        );
+
+        if (userId == null) continue;
+
+
+        final snapshot = await FirebaseDatabase.instance
+            .ref(
+          '/orgs/$orgId/'
+              'BankLink/$userId/'
+              '$institutionName/'
+              'accounts/${account.accountId}/daily_transactions/',
+        )
+            .get();
+
+        if (!snapshot.exists) continue;
+
+        final txDays =
+        Map<String, dynamic>.from(snapshot.value as Map);
+
+        for (final dayEntry in txDays.entries) {
+
+          if (!dayEntry.key.startsWith(monthPrefix)) {
+            continue;
+          }
+
+          final txMap =
+          Map<String, dynamic>.from(dayEntry.value);
+
+          for (final tx in txMap.values) {
+            final txData = Map<String, dynamic>.from(tx);
+
+            if (txData['type'] == 'removed') {
+              continue;
+            }
+
+            if (txData['amount'] == null) {
+              continue;
+            }
+
+            allTransactions.add(
+              PlaidTransaction.fromMap(txData),
+            );
+          }
+        }
+      }
+    }
+
+    allTransactions.sort(
+          (a, b) => b.date.compareTo(a.date),
+    );
+
+    return allTransactions;
   }
 
   // ------------------------------------------------------------
@@ -299,5 +375,102 @@ class LinkedBankRepository {
     });
 
     return txList;
+  }
+  Future<FinancialDashboardSummary> buildFinancialDashboardSummary({
+    required String orgId,
+    required DateTime month,
+  }) async {
+    final transactions = await getMonthlyTransactionsForOrg(
+      orgId: orgId,
+      month: month,
+    );
+
+
+    double incomeCategorized = 0;
+    double incomeUncategorized = 0;
+    int incomeUncategorizedCount = 0;
+
+    double expenseCategorized = 0;
+    double expenseUncategorized = 0;
+    int expenseUncategorizedCount = 0;
+
+    double debtCategorized = 0;
+    double debtUncategorized = 0;
+    int debtUncategorizedCount = 0;
+
+    final uncategorizedTransactions = <PlaidTransaction>[];
+
+
+    for (final tx in transactions) {
+      print(
+          '${tx.name} '
+              'amount=${tx.amount} '
+              'date=${tx.date} '
+              'category=${tx.category}'
+      );
+      final amount = tx.amount.abs();
+
+      final hasCategory =
+          tx.category.isNotEmpty &&
+              tx.category.any((c) => c.trim().isNotEmpty);
+
+      final isDebt = _isDebtTransaction(tx);
+
+      if (isDebt) {
+        if (hasCategory) {
+          debtCategorized += amount;
+        } else {
+          debtUncategorized += amount;
+          debtUncategorizedCount++;
+          uncategorizedTransactions.add(tx);
+        }
+        continue;
+      }
+
+      final isIncome = tx.amount < 0;
+
+      if (isIncome) {
+        if (hasCategory) {
+          incomeCategorized += amount;
+        } else {
+          incomeUncategorized += amount;
+          incomeUncategorizedCount++;
+          uncategorizedTransactions.add(tx);
+        }
+      } else {
+        if (hasCategory) {
+          expenseCategorized += amount;
+        } else {
+          expenseUncategorized += amount;
+          expenseUncategorizedCount++;
+          uncategorizedTransactions.add(tx);
+        }
+      }
+    }
+
+    return FinancialDashboardSummary(
+      incomeCategorized: incomeCategorized,
+      incomeUncategorized: incomeUncategorized,
+      incomeUncategorizedCount: incomeUncategorizedCount,
+
+      expenseCategorized: expenseCategorized,
+      expenseUncategorized: expenseUncategorized,
+      expenseUncategorizedCount: expenseUncategorizedCount,
+
+      debtCategorized: debtCategorized,
+      debtUncategorized: debtUncategorized,
+      debtUncategorizedCount: debtUncategorizedCount,
+
+      uncategorizedTransactions: uncategorizedTransactions,
+    );
+  }
+  bool _isDebtTransaction(PlaidTransaction tx) {
+    final categoryText =
+    tx.category.join(' ').toLowerCase();
+
+    return categoryText.contains('loan') ||
+        categoryText.contains('mortgage') ||
+        categoryText.contains('debt') ||
+        categoryText.contains('credit');
   }
 }

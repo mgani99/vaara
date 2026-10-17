@@ -108,6 +108,7 @@ class _NewUserPageState extends State<NewUserPage> {
                     session.user!.copyWith(
                       firstName: profile.name,
                       phone: profile.phone,
+
                     ),
                   );
 
